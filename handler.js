@@ -37,33 +37,14 @@ let msgHandler = async (upsert, sock, m) => {
     const isGroup = m.isGroup;
     let sender = m.key.addressingMode === "pn" ? m.sender : m.key.remoteJidAlt;
 
-    // LID
-    let isGroupAdmins
-    let isBotGroupAdmins
+    // LID / PN sender detection
     if (isGroup) {
       if (m.key.addressingMode === "pn") {
         sender = m.sender;
-      isGroupAdmins = groupMetadata.participants
-        .filter((participant) => participant.admin)
-        .map((participant) => participant.id)
-        .includes(sender)
-      isBotGroupAdmins = groupMetadata.participants
-        .filter((participant) => participant.admin)
-        .map((participant) => participant.id)
-        .includes(sock.user.id)
       } else {
-        sender = m.key.participantAlt
-      isGroupAdmins = groupMetadata.participants
-        .filter((participant) => participant.admin)
-        .map((participant) => participant.phoneNumber)
-        .includes(sender)
-      isBotGroupAdmins = groupMetadata.participants
-        .filter((participant) => participant.admin)
-        .map((participant) => participant.phoneNumber)
-        .includes(sock.user.id)
+        sender = m.key.participantAlt;
       }
     }
-    // LID
 
     const groupName = isGroup ? groupMetadata.subject : "";
     const pushname = m.pushName || sender;
@@ -149,15 +130,6 @@ let msgHandler = async (upsert, sock, m) => {
     
     if (botSettings.get("autoread")) await sock.readMessages([m.key]); // Auto read
 
-    // ─── Add XP + Limit check per command ───
-    const xpResult = db.addRandomXp(sender);
-    if (xpResult?.leveledUp) {
-      const tier = xpResult.tier;
-      await sock.sendMessage(m.chat, {
-        text: `🎉 *LEVEL UP!*\n\n${tier.badge} *${pushname}* naik ke *Level ${xpResult.newLevel}*!\nTier: *${tier.name}* (${tier.symbol})\n\nSelamat! Terus bermain! 🚀`
-      }, { ephemeralExpiration: m.contextInfo?.expiration });
-    }
-
     const reply = (text) => sock.sendMessage(m.chat, {
       text,
       footer: `© ${setting.name}`,
@@ -165,6 +137,7 @@ let msgHandler = async (upsert, sock, m) => {
     }, { quoted: m, ephemeralExpiration: m.contextInfo?.expiration });
 
     // fitur
+  let validCmd = true;
   switch (cmdName) {
     case "menu":
       {
@@ -846,9 +819,8 @@ let msgHandler = async (upsert, sock, m) => {
       {
         const result = game.battleAction(sender, "attack");
         if (result.error) return reply(result.error);
-        if (result.end) return reply(result.msg);
+        if (result.end) { game.afterBattle(sender); return reply(result.msg); }
         if (result.view) {
-          game.afterBattle(sender);
           await sock.sendMessage(m.chat, {
             image: { url: "https://files.catbox.moe/7jmjhh.jpeg" },
             caption: result.text,
@@ -875,9 +847,8 @@ let msgHandler = async (upsert, sock, m) => {
       {
         const result = game.battleAction(sender, "skill");
         if (result.error) return reply(result.error);
-        if (result.end) return reply(result.msg);
+        if (result.end) { game.afterBattle(sender); return reply(result.msg); }
         if (result.view) {
-          game.afterBattle(sender);
           await sock.sendMessage(m.chat, {
             image: { url: "https://files.catbox.moe/7jmjhh.jpeg" },
             caption: result.text,
@@ -904,9 +875,8 @@ let msgHandler = async (upsert, sock, m) => {
       {
         const result = game.battleAction(sender, "defend");
         if (result.error) return reply(result.error);
-        if (result.end) return reply(result.msg);
+        if (result.end) { game.afterBattle(sender); return reply(result.msg); }
         if (result.view) {
-          game.afterBattle(sender);
           await sock.sendMessage(m.chat, {
             image: { url: "https://files.catbox.moe/7jmjhh.jpeg" },
             caption: result.text,
@@ -933,6 +903,7 @@ let msgHandler = async (upsert, sock, m) => {
       {
         const result = game.fleeBattle(sender);
         if (result.error) return reply(result.error);
+        game.afterBattle(sender);
         reply(result.msg);
       }
       break;
@@ -1084,8 +1055,20 @@ let msgHandler = async (upsert, sock, m) => {
       break;
 
     default:
+      validCmd = false;
       if (isCmd) log.unregistered(pushname);
       break; 
+  }
+
+  // ─── Add XP after successful command ───
+  if (validCmd) {
+    const xpResult = db.addRandomXp(sender);
+    if (xpResult?.leveledUp) {
+      const tier = xpResult.tier;
+      await sock.sendMessage(m.chat, {
+        text: `🎉 *LEVEL UP!*\n\n${tier.badge} *${pushname}* naik ke *Level ${xpResult.newLevel}*!\nTier: *${tier.name}* (${tier.symbol})\n\nSelamat! Terus bermain! 🚀`
+      }, { ephemeralExpiration: m.contextInfo?.expiration });
+    }
   }
   } catch (err) {
     log.error(err.message || err);

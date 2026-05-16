@@ -17,6 +17,11 @@ import chokidar from "chokidar";
 import { Messages } from "./lib/Messages.js";
 import config from "./config.js";
 import log from "./lib/logger.js";
+import db from "./lib/database.js";
+
+// ─── Graceful shutdown ───
+process.on("SIGINT", () => { db.flush(); process.exit(0); });
+process.on("SIGTERM", () => { db.flush(); process.exit(0); });
 
 // ─── Suppress verbose session output dari library ───
 const _origLog = console.log;
