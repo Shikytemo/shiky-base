@@ -9,6 +9,7 @@
   "type": "module",
   "dependencies": {
     "@distube/ytdl-core": "^4.16.12",
+    "@jsquash/webp": "^1.5.0",
     "@ybd-project/ytdl-core": "^6.0.8",
     "any-ascii": "^0.3.2",
     "axios": "^1.13.1",

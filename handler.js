@@ -9,6 +9,8 @@ import {
 import moment from "moment-timezone";
 import anyAscii from "any-ascii";
 import Pino from "pino";
+import { Jimp } from "jimp";
+import { encode } from "@jsquash/webp";
 import axios from "axios";
 
 import { msgFilter } from "./lib/utils.js";
@@ -228,7 +230,14 @@ let msgHandler = async (upsert, sock, m) => {
       try {
         await m.react("⏳");
         const mediaMsg = isQuotedImage || isQuotedVideo ? { message: quotedMsg.message } : { message: m.message };
-        const buffer = await downloadMediaMessage(mediaMsg, "buffer", {}, { Pino, reuploadRequest: sock.updateMediaMessage });
+        const dl = await downloadMediaMessage(mediaMsg, "buffer", {}, { Pino, reuploadRequest: sock.updateMediaMessage });
+        let buffer = Buffer.isBuffer(dl) ? dl : Buffer.from(dl);
+        // Convert image to webp
+        if (isImage || isQuotedImage) {
+          const img = await Jimp.read(buffer);
+          img.resize({ w: 512, h: 512 });
+          buffer = Buffer.from(await encode({ data: new Uint8Array(img.bitmap.data), width: img.bitmap.width, height: img.bitmap.height }));
+        }
         await sock.sendMessage(m.chat, { sticker: buffer }, { quoted: m, ephemeralExpiration: m.contextInfo?.expiration });
         await m.react("✅");
       } catch (err) {
