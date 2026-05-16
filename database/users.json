@@ -1,0 +1,62 @@
+{
+  "12365021517@s.whatsapp.net": {
+    "jid": "12365021517@s.whatsapp.net",
+    "name": "KimKiro",
+    "level": 3,
+    "xp": 208,
+    "money": 0,
+    "limit": null,
+    "role": "owner",
+    "premium": false,
+    "premiumExpiry": 0,
+    "totalCmd": 40,
+    "registered": 1778879542332,
+    "lastDaily": 0,
+    "lastReset": "2026-05-16"
+  },
+  "6283151666244@s.whatsapp.net": {
+    "jid": "6283151666244@s.whatsapp.net",
+    "name": "6283151666244@s.whatsapp.net",
+    "level": 1,
+    "xp": 0,
+    "money": 0,
+    "limit": 25,
+    "role": "user",
+    "premium": false,
+    "premiumExpiry": 0,
+    "totalCmd": 0,
+    "registered": 1778890336520,
+    "lastDaily": 0,
+    "lastReset": "2026-05-16"
+  },
+  "628385863327@s.whatsapp.net": {
+    "jid": "628385863327@s.whatsapp.net",
+    "name": "628385863327@s.whatsapp.net",
+    "level": 1,
+    "xp": 0,
+    "money": 0,
+    "limit": 25,
+    "role": "user",
+    "premium": false,
+    "premiumExpiry": 0,
+    "totalCmd": 0,
+    "registered": 1778891832976,
+    "lastDaily": 0,
+    "lastReset": "2026-05-16"
+  },
+  "120363373283469585@newsletter": {
+    "jid": "120363373283469585@newsletter",
+    "name": "120363373283469585@newsletter",
+    "level": 1,
+    "xp": 0,
+    "money": 0,
+    "limit": 25,
+    "role": "user",
+    "premium": false,
+    "premiumExpiry": 0,
+    "totalCmd": 0,
+    "registered": 1778912733615,
+    "lastDaily": 0,
+    "lastReset": "2026-05-16"
+  }
+}
