@@ -131,8 +131,8 @@ let msgHandler = async (upsert, sock, m) => {
     const isQuotedFile = quotedMsg && (quotedMsg.mtype === "video/mp4" || quotedMsg.mtype === "image/jpeg" || quotedMsg.mtype === "image/png");
     const isQuotedText = quotedMsg && quotedMsg.mtype === "conversation";
     const isQuotedpdf = quotedMsg && quotedMsg.mtype === "application/pdf";
-    const stickerName = "SHIKYTEMO Bot";
-    const stickerAuthor = "Cek nomor bot wa yang aktif di web https://s.id/mybot";
+    const stickerName = setting.name;
+    const stickerAuthor = "github.com/Shikytemo/shiky-base";
 
         if (isGroup) {
           const listBlocked = await sock.fetchBlocklist()
