@@ -46,6 +46,15 @@ let msgHandler = async (upsert, sock, m) => {
       }
     }
 
+    // Bot group admin check
+    let isBotGroupAdmins = false;
+    if (isGroup) {
+      const adminIds = groupMetadata.participants
+        .filter(p => p.admin)
+        .map(p => p.id || p.phoneNumber);
+      isBotGroupAdmins = adminIds.includes(sock.user.id);
+    }
+
     const groupName = isGroup ? groupMetadata.subject : "";
     const pushname = m.pushName || sender;
     const botNumber = sock.user.id;
@@ -174,6 +183,7 @@ let msgHandler = async (upsert, sock, m) => {
               rows: [
                 { title: "🏓 Ping", description: "Cek kecepatan respon bot", id: `${prefix}ping` },
                 { title: "💬 Say", description: "Bot mengirim ulang teks kamu", id: `${prefix}say` },
+                { title: "🎨 Sticker", description: "Bikin stiker dari foto/video", id: `${prefix}s` },
                 { title: "📸 Resend", description: "Kirim ulang gambar/video", id: `${prefix}resend` },
                 { title: "📎 ToURL", description: "Upload media ke catbox.moe", id: `${prefix}tourl` },
                 { title: "🎵 TikTok", description: "Download video/foto/sound TikTok", id: `${prefix}tt` },
@@ -196,6 +206,8 @@ let msgHandler = async (upsert, sock, m) => {
                 { title: "💚 Heal", description: "Pulihkan HP dengan potion", id: `${prefix}heal` },
                 { title: "📦 Inventory", description: "Lihat item kamu", id: `${prefix}inv` },
                 { title: "🏪 Shop", description: "Beli potion & equipment", id: `${prefix}shop` },
+                { title: "📢 Tag All", description: "Tag semua member grup", id: `${prefix}tagall` },
+                { title: "👤 Kick", description: "Kick member dari grup", id: `${prefix}kick` },
                 { title: "⚙️ Settings", description: "Owner only", id: `${prefix}setting` },
               ]
             }
@@ -211,6 +223,20 @@ let msgHandler = async (upsert, sock, m) => {
     if (!q) return reply("📝 Masukkan teks!");
     await reply(`💬 ${q}`);
     break;
+    case "s": case "stiker": case "sticker":
+      if (!isImage && !isVideo && !isQuotedImage && !isQuotedVideo) return reply("📸 Kirim atau reply foto/video untuk dijadikan stiker!");
+      try {
+        await m.react("⏳");
+        const mediaMsg = isQuotedImage || isQuotedVideo ? { message: quotedMsg.message } : { message: m.message };
+        const buffer = await downloadMediaMessage(mediaMsg, "buffer", {}, { Pino, reuploadRequest: sock.updateMediaMessage });
+        await sock.sendMessage(m.chat, { sticker: buffer }, { quoted: m, ephemeralExpiration: m.contextInfo?.expiration });
+        await m.react("✅");
+      } catch (err) {
+        console.log(err);
+        await m.react("❌");
+        reply("❌ *Gagal membuat stiker!*");
+      }
+      break;
     case "cekidch": case "idch": case "checkidch":
       {
         const chatId = m.chat.split("@")[0];
@@ -1050,6 +1076,87 @@ let msgHandler = async (upsert, sock, m) => {
               }
             ])
           ]
+        }, { quoted: m, ephemeralExpiration: m.contextInfo?.expiration });
+      }
+      break;
+
+    // ─── Group Tools ───
+    case "kick": case "tendang":
+      if (!isGroup) return reply("❌ Khusus di grup!");
+      if (!isOwner && !isBotGroupAdmins) return reply("❌ Bot bukan admin!");
+      {
+        const target = m.quoted ? m.quoted.sender : args[0] ? args[0] + "@s.whatsapp.net" : null;
+        if (!target) return reply("👤 Reply pesan atau masukkan nomor target!");
+        try {
+          await sock.groupParticipantsUpdate(m.chat, [target], "remove");
+          reply("✅ *Berhasil dikick!*");
+        } catch { reply("❌ *Gagal kick!* Pastikan bot admin & target valid."); }
+      }
+      break;
+
+    case "add": case "tambah":
+      if (!isGroup) return reply("❌ Khusus di grup!");
+      if (!isOwner && !isBotGroupAdmins) return reply("❌ Bot bukan admin!");
+      {
+        const target = args[0] ? args[0] + "@s.whatsapp.net" : null;
+        if (!target) return reply("👤 Masukkan nomor target!\nContoh: .add 628xxx");
+        try {
+          await sock.groupParticipantsUpdate(m.chat, [target], "add");
+          reply("✅ *Berhasil ditambahkan!*");
+        } catch { reply("❌ *Gagal menambahkan!* Pastikan nomor valid."); }
+      }
+      break;
+
+    case "promote": case "jadimin":
+      if (!isGroup) return reply("❌ Khusus di grup!");
+      if (!isOwner && !isBotGroupAdmins) return reply("❌ Bot bukan admin!");
+      {
+        const target = m.quoted ? m.quoted.sender : args[0] ? args[0] + "@s.whatsapp.net" : null;
+        if (!target) return reply("👤 Reply pesan atau masukkan nomor target!");
+        try {
+          await sock.groupParticipantsUpdate(m.chat, [target], "promote");
+          reply("✅ *Berhasil jadi admin!*");
+        } catch { reply("❌ *Gagal promote!*"); }
+      }
+      break;
+
+    case "demote": case "jadiin":
+      if (!isGroup) return reply("❌ Khusus di grup!");
+      if (!isOwner && !isBotGroupAdmins) return reply("❌ Bot bukan admin!");
+      {
+        const target = m.quoted ? m.quoted.sender : args[0] ? args[0] + "@s.whatsapp.net" : null;
+        if (!target) return reply("👤 Reply pesan atau masukkan nomor target!");
+        try {
+          await sock.groupParticipantsUpdate(m.chat, [target], "demote");
+          reply("✅ *Berhasil jadi member!*");
+        } catch { reply("❌ *Gagal demote!*"); }
+      }
+      break;
+
+    case "tagall": case "everyone":
+      if (!isGroup) return reply("❌ Khusus di grup!");
+      if (!isOwner && !isBotGroupAdmins) return reply("❌ Bot bukan admin!");
+      {
+        const meta = await sock.groupMetadata(m.chat);
+        const members = meta.participants.map(p => p.id);
+        const txt = q ? `📢 *PENGUMUMAN*\n\n${q}\n\n` : "📢 *TAG ALL*\n\n";
+        await sock.sendMessage(m.chat, {
+          text: txt + members.map(jid => `@${jid.split("@")[0]}`).join(" "),
+          mentions: members
+        }, { quoted: m, ephemeralExpiration: m.contextInfo?.expiration });
+      }
+      break;
+
+    case "hidetag":
+      if (!isGroup) return reply("❌ Khusus di grup!");
+      if (!isOwner && !isBotGroupAdmins) return reply("❌ Bot bukan admin!");
+      {
+        if (!q) return reply("📝 Masukkan teks untuk hidetag!");
+        const meta = await sock.groupMetadata(m.chat);
+        const members = meta.participants.map(p => p.id);
+        await sock.sendMessage(m.chat, {
+          text: q,
+          mentions: members
         }, { quoted: m, ephemeralExpiration: m.contextInfo?.expiration });
       }
       break;

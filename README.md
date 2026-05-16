@@ -118,6 +118,11 @@ cd shiky-base
 # 2. Install dependencies
 npm install
 
+# ⚠️ Khusus Termux/Android: jika gagal install sharp,
+#    jalankan ini dulu lalu ulangi npm install:
+export GYP_DEFINES="android_ndk_path=''"
+npm install
+
 # 3. Edit config.js — isi nomor WhatsApp kamu
 nano config.js
 ```

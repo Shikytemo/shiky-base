@@ -18,6 +18,7 @@ import { Messages } from "./lib/Messages.js";
 import config from "./config.js";
 import log from "./lib/logger.js";
 import db from "./lib/database.js";
+import botSettings from "./lib/botSettings.js";
 
 // ─── Graceful shutdown ───
 process.on("SIGINT", () => { db.flush(); process.exit(0); });
@@ -138,6 +139,30 @@ async function connectToWhatsApp() {
       await sock.sendMessage(chatId, {
         text: "Tidak bisa menerima panggilan suara/video.",
       }, { ephemeralExpiration: upsert?.messages[0].contextInfo?.expiration });
+    }
+
+    // ─── Welcome & Goodbye ───
+    if (ev["group-participants.update"]) {
+      const update = ev["group-participants.update"];
+      if (!botSettings.get("welcome")) return;
+      const { id, participants, action } = update;
+      const groupMeta = await sock.groupMetadata(id);
+      const groupName = groupMeta.subject;
+      for (const p of participants) {
+        const jid = p;
+        const num = jid.split("@")[0];
+        if (action === "add") {
+          await sock.sendMessage(id, {
+            text: `👋 *Selamat Datang!*\n\n@${num}\n\nSelamat bergabung di *${groupName}*! 🎉\n\nJangan lupa baca deskripsi grup ya~`,
+            mentions: [jid]
+          });
+        } else if (action === "remove") {
+          await sock.sendMessage(id, {
+            text: `👋 *Selamat Tinggal!*\n\n@${num} telah keluar dari grup.\n\nSemoga sukses selalu! 🫡`,
+            mentions: [jid]
+          });
+        }
+      }
     }
   });
 }
