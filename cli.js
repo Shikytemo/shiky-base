@@ -598,6 +598,46 @@ async function handleAction(action) {
   return true;
 }
 
+// ─── Fun Facts / Tips ───
+const FACTS = [
+  "Script ini punya 7,900+ baris kode, ditulis dari HP. Gila.",
+  "Ada 250 command unik di handler.js. Lebih banyak dari kebanyakan bot premium.",
+  "52 file scraper di lib/scrape/tools/ — koleksi API gratis terlengkap.",
+  "handler.js sendiri 2,271 baris. Satu file menguasai segalanya.",
+  "18 dependencies, tapi hasilnya 250+ fitur. Efisiensi level dewa.",
+  "430 await calls di handler.js. Async game-nya kuat banget.",
+  "82 try-catch block — error handling rapi, bukan asal jalan.",
+  "10 video upscaler provider dalam satu file. Kalau satu gagal, ada 9 lagi.",
+  "Bot ini support AI: Claude, Gemini, Dolphin, Perplexed, TurboSeek.",
+  "Ada cek resi, KBBI, resep masak, kurs mata uang — ini bot atau superapp?",
+  "Dari commit pertama sampai sekarang cuma 2 hari. Speed coding gila.",
+  "14 commits, 78 file JS, 705KB pure code. Ringan tapi powerful.",
+  "Support Ghibli AI, photo enhance, waifu2x, background remover. Lengkap.",
+  "Auto-update dari GitHub, hot-reload handler tanpa restart. Pro setup.",
+  "Multi-session support — satu CLI bisa manage banyak bot sekaligus.",
+  "NIK parser, ML hero info, anime quote — fitur random tapi berguna.",
+  "Sticker maker tanpa native deps, pakai WASM. Smart solution.",
+  "Ada TTS (text to speech) pakai Qwen. Bot lu bisa ngomong.",
+  "nanobanana punya 13 fungsi generate gambar AI. Gokil.",
+  "Welcome system + group tools (kick/add/promote/demote/tagall/hidetag).",
+  "Script ini jalan di Termux Android. Server? Ga butuh.",
+  "Session auto-clear tiap 30 menit biar ga bloat. Detail matters.",
+  "Video enhance AI sampai 4K via unblurimage.ai. Gratis pula.",
+  "Developer bot ini coding dari HP doang. Respect.",
+  "Bot ini punya lebih banyak fitur dari bot yang dijual 500rb.",
+  "Scraper Pinterest, TikTok, IG, FB, Twitter, Threads — semua ada.",
+  "SoundCloud, Joox, Spotify, YouTube search — music downloader lengkap.",
+  "Mega, GDrive, Mediafire, Sfile, Terabox — download dari mana aja.",
+  "Google search, Wikipedia, kamus, cuaca, berita — mini browser di WA.",
+  "Logger-nya custom dengan spinner animasi, bukan console.log biasa.",
+];
+
+function showRandomFact() {
+  const fact = FACTS[Math.floor(Math.random() * FACTS.length)];
+  console.log();
+  console.log(`  ${chalk.yellow("*")} ${chalk.white.italic(fact)}`);
+}
+
 // ─── Startup Animation ───
 async function startupAnim() {
   clear();
@@ -610,6 +650,7 @@ async function startupAnim() {
 async function main() {
   await startupAnim();
   showServerInfo();
+  showRandomFact();
   ensureDir(SESSIONS_DIR);
   migrateOldSession();
 
@@ -619,7 +660,8 @@ async function main() {
     if (!choice) continue;
     const cont = await handleAction(choice.action);
     if (cont === false) break;
-    // small pause before showing menu again
+    // show random fact before next menu
+    showRandomFact();
     await new Promise(r => setTimeout(r, 500));
   }
 }
