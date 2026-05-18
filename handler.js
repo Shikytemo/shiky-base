@@ -7,18 +7,17 @@ import {
 import moment from "moment-timezone";
 import anyAscii from "any-ascii";
 import Pino from "pino";
-import { Sticker } from "wa-sticker-formatter";
 
 import { msgFilter } from "./lib/utils.js";
 import * as scrape from "./lib/scrape/index.js";
-const { catboxUpload, tiktokDl, snapDl, threadsDl, douyinDl, pinterestDl, Jawa, mlbbHero, searchLirik, ttSearch, npmstalk, igstalk, githubstalk, mediafireDl, scdl, jooxSearch, jooxDl, sfileSearch, sfileDl, capcutDl, searchMp3, appSearch, stickerSearch, ttRandom, surah, ssstik, dailyMotion, searchAppleMusic, snapinsta, fbdl2, ocrBuffer, whatMusic, nanoBanana, upscaleImage, upscaleVideo, wiki, define, kurs, currencyConvert, cuaca, googleSearch, animeInfo, movieInfo, berita, dolphinAI, editImg, ghibliAI, removeBg, qwenTTS, cekResi, nikParse, teraboxDL, ssweb, kbbiSearch, cookpadSearch, transcribe, perplexed, turboseek, bypassCity, lyricsSearch, unsplashSearch, pexelsSearch, claude3, geminiAI, megaDL, gdriveDL, scribdDL, animeQuote, getppWA, waifu2x, photoEnhancer } = scrape;
+const { catboxUpload, tiktokDl, snapDl, threadsDl, douyinDl, pinterestDl, Jawa, mlbbHero, searchLirik, ttSearch, npmstalk, igstalk, githubstalk, mediafireDl, scdl, jooxSearch, jooxDl, sfileSearch, sfileDl, capcutDl, searchMp3, appSearch, stickerSearch, ttRandom, surah, ssstik, dailyMotion, searchAppleMusic, snapinsta, fbdl2, ocrBuffer, whatMusic, nanoBanana, upscaleImage, upscaleVideo, wiki, define, kurs, currencyConvert, cuaca, googleSearch, animeInfo, movieInfo, berita, dolphinAI, editImg, ghibliAI, removeBg, qwenTTS, cekResi, nikParse, teraboxDL, ssweb, kbbiSearch, cookpadSearch, transcribe, perplexed, turboseek, bypassCity, lyricsSearch, unsplashSearch, pexelsSearch, claude3, geminiAI, megaDL, gdriveDL, scribdDL, animeQuote, getppWA, waifu2x, photoEnhancer, unblurVideo } = scrape;
 import log from "./lib/logger.js";
 import db from "./lib/database.js";
 import { TIERS } from "./lib/database.js";
 import game from "./lib/game.js";
 import botSettings from "./lib/botSettings.js";
-import plugins from "./lib/plugins.js";
 import { checkUpdate, doUpdate } from "./lib/autoUpdate.js";
+import { createSticker } from "./lib/sticker.js";
 import { search, download, playSong, formatSearch } from "./lib/spotify.js";
 
 import setting from "./setting.js";
@@ -82,15 +81,18 @@ let msgHandler = async (upsert, sock, m) => {
     ? await getCachedMeta(sock, m.chat)
     : {};
     const isGroup = m.isGroup;
-    let sender = m.key.addressingMode === "pn" ? m.sender : m.key.remoteJidAlt;
-
-    // LID / PN sender detection
+    
+    // Gunakan bawaan shileys untuk handle LID & PN
+    let sender;
     if (isGroup) {
-      if (m.key.addressingMode === "pn") {
-        sender = m.sender;
-      } else {
-        sender = m.key.participantAlt;
-      }
+      sender = m.key.addressingMode === "pn" ? m.sender : (m.key.participantAlt || m.key.participant || m.sender);
+    } else {
+      sender = m.key.addressingMode === "pn" ? m.sender : (m.key.remoteJidAlt || m.key.remoteJid || m.sender);
+    }
+    
+    // Normalize JID (hapus device id spt :12)
+    if (sender && sender.includes(":")) {
+      sender = sender.split(":")[0] + (sender.endsWith("@lid") ? "@lid" : "@s.whatsapp.net");
     }
 
     // Bot group admin check
@@ -130,6 +132,10 @@ let msgHandler = async (upsert, sock, m) => {
     const isOwner = db.isOwner(sender) || sender === ownerNumber;
     const isBotAdmin = db.isAdmin(sender);
     const isPremium = db.isPremium(sender);
+
+    const groupAdmins = isGroup ? groupMetadata.participants.filter(p => p.admin).map(p => p.id) : [];
+    const isAdmin = isGroup ? groupAdmins.includes(sender) : false;
+
     const userLimit = db.getLimit(sender);
 
     let budy = (typeof m.text == 'string' ? m.text : '')
@@ -195,167 +201,164 @@ let msgHandler = async (upsert, sock, m) => {
       interactiveButtons: [urlButton("GitHub", "https://github.com/shikytemo")]
     }, { quoted: m, ephemeralExpiration: m.contextInfo?.expiration });
 
-    // ─── Try Plugin ───
-    const plugin = plugins.get(cmdName);
-    if (plugin) {
-      try {
-        await plugin.run({
-          sock, m, args, q, prefix, command, cmdName, 
-          pushname, sender, isGroup, groupMetadata, 
-          isOwner, isAdmin, isBotAdmins, isBotGroupAdmins,
-          reply, db, botSettings, moment, setting,
-          isImage, isVideo, isQuotedImage, isQuotedVideo, isQuotedSticker, isQuotedAudio
-        });
-        return;
-      } catch (err) {
-        log.error(`Plugin error (${cmdName}): ${err.message}`);
-        return reply(`❌ *Error:* ${err.message}`);
-      }
-    }
-
     // ─── Legacy Fitur (Switch) ───
   let validCmd = true;
   switch (cmdName) {
-    case "menu":
+    case "menu": case "help":
       {
-      const p = db.getProfile(sender);
-      const tier = p ? p.tier : db.getTier(1);
-      const xpBar = p ? p.xpBar : "░░░░░░░░░░";
-      const maxLim = p ? p.maxLimit : 25;
-      const menuText = `Halo *${pushname}* 👋\n\n` +
-        `┌─── *Player Info* ───\n` +
-        `│ *ID:* ${sender.split("@")[0]}\n` +
-        `│ *Name:* ${pushname}\n` +
-        `│ *Role:* ${p ? p.roleDisplay : "User"}\n` +
-        `│\n` +
-        `│ ${tier.badge} *Tier ${tier.symbol}* - ${tier.name}\n` +
-        `│ *Level:* ${p ? p.level : 1}\n` +
-        `│ *XP:* ${p ? p.xp : 0}/${p ? p.xpNeeded : 50}\n` +
-        `│ ${xpBar}\n` +
-        `│\n` +
-        `│ *Money:* $${p ? p.money.toLocaleString() : "0"}\n` +
-        `│ *Limit:* ${p ? (p.limit >= 99999 || p.limit == null ? "♾️" : p.limit) : 25}/${maxLim}\n` +
-        `│ *Total Cmd:* ${p ? p.totalCmd : 0}\n` +
-        `└─────────────────\n\n` +
-        `_Pilih menu di bawah ini:_`;
-      await sock.sendMessage(m.chat, {
-        image: { url: "https://files.catbox.moe/7jmjhh.jpeg" },
-        title: setting.name,
-        text: menuText,
-        footer: `© ${setting.name} | ${moment().format("DD/MM/YYYY HH:mm:ss")}`,
-        interactiveButtons: [
-          urlButton("GitHub", "https://github.com"),
-          singleSelectButton("📋 All Commands", [
-            {
-              title: "All Commands",
-              rows: [
-                { title: "🏓 Ping", description: "Cek kecepatan respon bot", id: `${prefix}ping` },
-                { title: "💬 Say", description: "Bot mengirim ulang teks kamu", id: `${prefix}say` },
-                { title: "🔍 Cek Update", description: "Cek update dari GitHub", id: `${prefix}cekupdate` },
-                { title: "🔄 Update", description: "Update bot ke versi terbaru", id: `${prefix}update` },
-                { title: "🎨 Sticker", description: "Bikin stiker dari foto/video", id: `${prefix}s` },
-                { title: "📸 Resend", description: "Kirim ulang gambar/video", id: `${prefix}resend` },
-                { title: "📎 ToURL", description: "Upload media ke catbox.moe", id: `${prefix}tourl` },
-                { title: "🔍 OCR", description: "Baca teks dari gambar", id: `${prefix}ocr` },
-                { title: "🎵 WhatMusic", description: "Identifikasi lagu dari audio", id: `${prefix}whatmusic` },
-                { title: "🎨 AI Image", description: "Generate gambar dari teks", id: `${prefix}nano` },
-                { title: "📸 HD/Upscale", description: "Enhance kualitas gambar", id: `${prefix}hd` },
-                { title: "🎬 VideoHD", description: "Enhance kualitas video", id: `${prefix}vhd` },
-                { title: "🎵 TikTok", description: "Download video/foto/sound TikTok", id: `${prefix}tt` },
-                { title: "🎶 TT Sound", description: "Download audio TikTok saja", id: `${prefix}ttsound` },
-                { title: "🎬 TT Watermark", description: "Download TikTok dengan WM", id: `${prefix}ttwm` },
-                { title: "📘 Facebook", description: "Download video/foto Facebook", id: `${prefix}fb` },
-                { title: "📷 Instagram", description: "Download video/foto Instagram", id: `${prefix}ig` },
-                { title: "🐦 Twitter/X", description: "Download video/foto Twitter", id: `${prefix}tw` },
-                { title: "🧵 Threads", description: "Download media Threads", id: `${prefix}threads` },
-                { title: "📌 Pinterest", description: "Download video/foto Pinterest", id: `${prefix}pin` },
-                { title: "🇨🇳 Douyin", description: "Download video Douyin (TikTok CN)", id: `${prefix}douyin` },
-                { title: "📘 FB DL 2", description: "Download Facebook (alt)", id: `${prefix}fbdl2` },
-                { title: "📷 IG DL 2", description: "Download Instagram (alt)", id: `${prefix}snapinsta` },
-                { title: "🎵 YT Search", description: "Cari lagu di YouTube Music", id: `${prefix}yts` },
-                { title: "🎵 Play", description: "Download & mainkan lagu", id: `${prefix}play` },
-                { title: "💚 Spotify DL", description: "Download lagu Spotify", id: `${prefix}spdl` },
-                { title: "🎵 SoundCloud DL", description: "Download dari SoundCloud", id: `${prefix}scdl` },
-                { title: "🎵 Joox", description: "Cari lagu di Joox", id: `${prefix}joox` },
-                { title: "🎵 Apple Music", description: "Cari lagu di Apple Music", id: `${prefix}am` },
-                { title: "🎵 MP3 Search", description: "Cari & download MP3", id: `${prefix}mp3` },
-                { title: "🔗 Mediafire", description: "Download dari Mediafire", id: `${prefix}mf` },
-                { title: "✂️ CapCut", description: "Download template CapCut", id: `${prefix}capcut` },
-                { title: "📁 Sfile", description: "Cari file di Sfile.mobi", id: `${prefix}sfile` },
-                { title: "📱 APK Search", description: "Cari aplikasi Android", id: `${prefix}apk` },
-                { title: "🔍 TT Search", description: "Cari video TikTok", id: `${prefix}tts` },
-                { title: "🎲 TT Random", description: "Random video TikTok", id: `${prefix}ttr` },
-                { title: "🔍 Sticker Search", description: "Cari stiker", id: `${prefix}ss` },
-                { title: "📖 Surah", description: "Baca ayat Al-Quran", id: `${prefix}surah` },
-                { title: "🎬 DailyMotion", description: "Download dari DailyMotion", id: `${prefix}dm` },
-                { title: "🔤 Krama", description: "Translate ke bahasa Jawa krama", id: `${prefix}krama` },
-                { title: "🔤 Aksara", description: "Convert teks ke aksara Jawa", id: `${prefix}aksara` },
-                { title: "🔤 Sunda", description: "Translate ke bahasa Sunda", id: `${prefix}sunda` },
-                { title: "🎵 Lirik", description: "Cari lirik lagu", id: `${prefix}lirik` },
-                { title: "👾 MLBB", description: "Info hero Mobile Legends", id: `${prefix}mlbb` },
-                { title: "📦 NPM Stalk", description: "Info package NPM", id: `${prefix}npm` },
-                { title: "📷 IG Stalk", description: "Info profil Instagram", id: `${prefix}igs` },
-                { title: "🐙 GitHub Stalk", description: "Info profil GitHub", id: `${prefix}ghstalk` },
-                { title: "📖 Wikipedia", description: "Cari info di Wikipedia", id: `${prefix}wiki` },
-                { title: "📚 Dictionary", description: "Cari definisi kata (English)", id: `${prefix}define` },
-                { title: "💱 Kurs", description: "Cek kurs mata uang", id: `${prefix}kurs` },
-                { title: "🌤️ Cuaca", description: "Cek cuaca kota", id: `${prefix}cuaca` },
-                { title: "🔍 Google", description: "Cari di mesin pencari (Bing)", id: `${prefix}google` },
-                { title: "🎌 Anime", description: "Info anime dari MyAnimeList", id: `${prefix}anime` },
-                { title: "🎬 Movie", description: "Info film dari TMDB", id: `${prefix}movie` },
-                { title: "📰 Berita", description: "Berita terkini dari Google News", id: `${prefix}berita` },
-                { title: "🤖 AI Chat", description: "Tanya AI (Dolphin 24B)", id: `${prefix}ai` },
-                { title: "✏️ Edit Img", description: "Edit gambar pakai AI", id: `${prefix}editimg` },
-                { title: "🎌 Ghibli", description: "Convert gambar ke Ghibli style", id: `${prefix}ghibli` },
-                { title: "✂️ Remove BG", description: "Hapus background gambar", id: `${prefix}removebg` },
-                { title: "🔊 TTS", description: "Text ke suara (7 voice)", id: `${prefix}tts` },
-                { title: "📦 Cek Resi", description: "Cek status pengiriman paket", id: `${prefix}cekresi` },
-                { title: "🪪 NIK Parse", description: "Parse NIK KTP Indonesia", id: `${prefix}nik` },
-                { title: "📁 Terabox", description: "Download file Terabox", id: `${prefix}terabox` },
-                { title: "📸 Screenshot", description: "Screenshot website", id: `${prefix}ssweb` },
-                { title: "📖 KBBI", description: "Kamus Besar Bahasa Indonesia", id: `${prefix}kbbi` },
-                { title: "🍳 Resep", description: "Cari resep masakan (Cookpad)", id: `${prefix}resep` },
-                { title: "🎤 Transcribe", description: "Audio/video ke teks", id: `${prefix}transcribe` },
-                { title: "🔬 Deep Search", description: "AI search dengan sumber (Perplexed)", id: `${prefix}deepsearch` },
-                { title: "⚡ Turboseek", description: "AI search dengan sumber", id: `${prefix}turboseek` },
-                { title: "🔗 Bypass Link", description: "Bypass link shortener", id: `${prefix}bypass` },
-                { title: "🎵 Lirik (LRCLIB)", description: "Cari lirik + synced lyrics", id: `${prefix}lirik2` },
-                { title: "🖼️ Unsplash", description: "Cari gambar HD gratis", id: `${prefix}unsplash` },
-                { title: "🖼️ Pexels", description: "Cari foto & video stok gratis", id: `${prefix}pexels` },
-                { title: "🤖 Claude 3", description: "Tanya AI Claude (Anthropic)", id: `${prefix}claude` },
-                { title: "🤖 Gemini AI", description: "Tanya AI Google Gemini", id: `${prefix}gemini` },
-                { title: "📁 MEGA DL", description: "Download dari MEGA.nz", id: `${prefix}mega` },
-                { title: "📁 GDrive DL", description: "Download dari Google Drive", id: `${prefix}gdrive` },
-                { title: "📄 Scribd DL", description: "Download dokumen Scribd", id: `${prefix}scribd` },
-                { title: "💬 Anime Quote", description: "Random quote anime", id: `${prefix}animequote` },
-                { title: "📷 PP WA", description: "Ambil foto profil WhatsApp", id: `${prefix}ppwa` },
-                { title: "✨ Waifu2x", description: "Upscale gambar anime", id: `${prefix}waifu2x` },
-                { title: "✨ Enhance", description: "Enhance kualitas foto AI", id: `${prefix}enhance` },
-                { title: "🪪 Profile", description: "Lihat kartu profil & tier kamu", id: `${prefix}profile` },
-                { title: "📊 Level", description: "Cek level & XP kamu", id: `${prefix}level` },
-                { title: "🎁 Daily", description: "Klaim hadiah harian", id: `${prefix}daily` },
-                { title: "🏆 Leaderboard", description: "Top 10 pemain", id: `${prefix}lb` },
-                { title: "🏅 Tier List", description: "Lihat semua tier", id: `${prefix}tier` },
-                { title: "💰 Balance", description: "Cek uang kamu", id: `${prefix}bal` },
-                { title: "💸 Transfer", description: "Kirim uang ke pemain lain", id: `${prefix}transfer` },
-                { title: "📶 Limit", description: "Cek sisa limit harian", id: `${prefix}limit` },
-                { title: "⚔️ Battle", description: "Lawan monster! (interaktif)", id: `${prefix}battle` },
-                { title: "🏹 Hunt", description: "Berburu item & gold", id: `${prefix}hunt` },
-                { title: "💚 Heal", description: "Pulihkan HP dengan potion", id: `${prefix}heal` },
-                { title: "📦 Inventory", description: "Lihat item kamu", id: `${prefix}inv` },
-                { title: "🏪 Shop", description: "Beli potion & equipment", id: `${prefix}shop` },
-                { title: "📢 Tag All", description: "Tag semua member grup", id: `${prefix}tagall` },
-                { title: "👤 Kick", description: "Kick member dari grup", id: `${prefix}kick` },
-                { title: "⚙️ Settings", description: "Owner only", id: `${prefix}setting` },
-              ]
-            }
-          ])
-        ]
-      }, { quoted: m, ephemeralExpiration: m.contextInfo?.expiration });
+        const hour = moment().hour();
+        let greeting = "Selamat Malam";
+        if (hour >= 4 && hour < 10) greeting = "Selamat Pagi";
+        else if (hour >= 10 && hour < 15) greeting = "Selamat Siang";
+        else if (hour >= 15 && hour < 18) greeting = "Selamat Sore";
+
+        const p = db.getProfile(sender);
+        const tier = p ? p.tier : db.getTier(1);
+        const xpBar = p ? p.xpBar : "░░░░░░░░░░";
+        const maxLim = p ? (p.limit >= 99999 ? "♾️" : p.limit) : 25;
+        
+        const menuText = `${greeting} *${pushname}* 👋\n\n` +
+          `┌─── *Player Info* ───\n` +
+          `│ *ID:* ${sender.split("@")[0]}\n` +
+          `│ *Name:* ${pushname}\n` +
+          `│ *Role:* ${p ? p.roleDisplay : "User"}\n` +
+          `│\n` +
+          `│ ${tier.badge} *Tier ${tier.symbol}* - ${tier.name}\n` +
+          `│ *Level:* ${p ? p.level : 1}\n` +
+          `│ *XP:* ${p ? p.xp : 0}/${p ? p.xpNeeded : 50}\n` +
+          `│ ${xpBar}\n` +
+          `│\n` +
+          `│ *Money:* $${p ? p.money.toLocaleString() : "0"}\n` +
+          `│ *Limit:* ${p ? (p.limit >= 99999 ? "♾️" : p.limit) : 25}/${maxLim}\n` +
+          `│ *Total Cmd:* ${p ? p.totalCmd : 0}\n` +
+          `└─────────────────\n\n` +
+          `_Pilih menu di bawah ini:_`;
+
+        await sock.sendMessage(m.chat, {
+          image: { url: "https://files.catbox.moe/7jmjhh.jpeg" },
+          caption: menuText,
+          footer: `© ${setting.name} | ${moment().format("HH:mm:ss")}`,
+          interactiveButtons: [
+            urlButton("🌐 GitHub", "https://github.com/Shikytemo"),
+            singleSelectButton("📂 Pilih Kategori", [
+              {
+                title: "Menu Utama",
+                rows: [
+                  { title: "📋 All Commands", description: "Tampilkan semua fitur bot", id: `${prefix}allmenu` },
+                  { title: "🏠 Main Menu", description: "Fitur dasar bot", id: `${prefix}listmenu main` },
+                  { title: "📁 Download", description: "Video & Media Downloader", id: `${prefix}listmenu download` },
+                  { title: "🛠️ Tools", description: "AI, Search & Utilitas", id: `${prefix}listmenu tools` },
+                  { title: "🎮 Game & RPG", description: "Sistem Battle, Hunt & Stats", id: `${prefix}listmenu game` },
+                  { title: "⚙️ Admin", description: "Pengaturan Bot & Grup", id: `${prefix}listmenu admin` }
+                ]
+              }
+            ])
+          ]
+        }, { quoted: m, ephemeralExpiration: m.contextInfo?.expiration });
       }
       break;
+
+    case "listmenu": case "allmenu":
+      {
+        const LEGACY_MENU = {
+          download: ["tt", "fb", "ig", "tw", "threads", "dy", "pin", "mf", "scdl", "jooxdl", "sfiledl", "capcut", "play", "spdl", "mega", "gdrive", "scribd", "terabox", "dm", "ytsearch"],
+          tools: ["krama", "aksara", "sunda", "lirik", "tts", "igs", "ghstalk", "npm", "wiki", "define", "kurs", "cuaca", "google", "anime", "movie", "news", "ai", "editimg", "ghibli", "removebg", "cekresi", "nik", "ssweb", "kbbi", "resep", "transcribe", "deepsearch", "turboseek", "bypass", "unsplash", "pexels", "claude", "gemini", "ppwa", "waifu2x", "enhance", "ocr", "whatmusic", "hd", "vhd", "unblur", "nano"],
+          game: ["battle", "hunt", "heal", "shop", "inv", "lb", "daily", "bal", "transfer", "level", "tier"],
+          admin: ["kick", "add", "promote", "demote", "tagall", "hidetag", "addpremium", "addmoney", "addlimit", "setlevel"],
+          main: ["ping", "say", "cekidch", "idgc", "tourl", "resend", "stats", "cekupdate"]
+        };
+
+        if (cmdName === "allmenu") {
+          let text = `📋 *ALL COMMANDS*\n\n`;
+          for (const cat in LEGACY_MENU) {
+            text += `┌─── *${cat.toUpperCase()}* ───\n`;
+            for (const cmd of LEGACY_MENU[cat]) {
+              text += `│ • ${prefix}${cmd}\n`;
+            }
+            text += `└─────────────────\n\n`;
+          }
+          return reply(text.trim());
+        }
+
+        const cat = args[0]?.toLowerCase();
+        if (!cat) return reply("Pilih kategori!");
+        const cmdInLegacy = LEGACY_MENU[cat] || [];
+        if (!cmdInLegacy.length) return reply("Kategori tidak ditemukan!");
+
+        const rows = cmdInLegacy.map(cmd => ({
+          title: `${prefix}${cmd}`,
+          description: `Gunakan perintah ${cmd}`,
+          id: `${prefix}${cmd}`
+        }));
+
+        await sock.sendMessage(m.chat, {
+          text: `📂 *CATEGORY: ${cat.toUpperCase()}*\n\nSilakan pilih perintah di bawah ini:`,
+          footer: `© ${setting.name}`,
+          interactiveButtons: [
+            singleSelectButton("🚀 Pilih Perintah", [
+              { title: cat.toUpperCase(), rows }
+            ])
+          ]
+        }, { quoted: m });
+      }
+      break;
+
     case "ping": case "test": case "tes":
       await reply(`🏓 *Pong!*\n\n⚡ Speed: ${Date.now() - t * 1000} ms`);
+      break;
+
+    case "s": case "stiker": case "sticker":
+      if (!isImage && !isVideo && !isQuotedImage && !isQuotedVideo) 
+        return reply("📸 Kirim atau reply foto/video untuk dijadikan stiker!");
+      try {
+        await m.react("⏳");
+        const mediaMsg = isQuotedImage || isQuotedVideo ? { message: m.quoted.message } : { message: m.message };
+        const buffer = await downloadMediaMessage(mediaMsg, "buffer", {}, { Pino, reuploadRequest: sock.updateMediaMessage });
+        const type = (isVideo || isQuotedVideo) ? "video" : "image";
+        const sticker = await createSticker(buffer, type);
+        await sock.sendMessage(m.chat, { sticker }, { quoted: m });
+        await m.react("✅");
+      } catch (err) {
+        await m.react("❌");
+        reply(`❌ *Gagal membuat stiker!* ${err.message}`);
+      }
+      break;
+
+    case "set": case "setting":
+      {
+        if (!isOwner) return reply("👑 *Khusus Owner!*");
+        const key = args[0]?.toLowerCase();
+        const all = botSettings.getAll();
+        if (key === "reset") {
+          botSettings.reset();
+          return reply("🔄 *Settings di-reset ke default!*");
+        }
+        if (key) {
+          const valid = Object.keys(all);
+          if (!valid.includes(key)) return reply(`❌ Key tidak valid!\n\nValid: ${valid.join(", ")}`);
+          const newVal = botSettings.toggle(key);
+          const labels = { autoread: "Auto Read", autotyping: "Auto Typing", antispam: "Anti Spam", gamemode: "Game Mode", welcome: "Welcome Message", selfmode: "Self Mode", autoupdate: "Auto Update" };
+          return reply(`⚙️ *${labels[key] || key}* → ${newVal ? "🟢 ON" : "🔴 OFF"}`);
+        }
+        const icons = { true: "🟢", false: "🔴" };
+        const rows = [
+          { title: `${icons[all.autoread]} Auto Read`, description: "Membaca pesan otomatis", id: `${prefix}set autoread` },
+          { title: `${icons[all.autotyping]} Auto Typing`, description: "Menampilkan status mengetik", id: `${prefix}set autotyping` },
+          { title: `${icons[all.antispam]} Anti Spam`, description: "Mencegah spam command", id: `${prefix}set antispam` },
+          { title: `${icons[all.gamemode]} Game Mode`, description: "Battle & hunt features", id: `${prefix}set gamemode` },
+          { title: `${icons[all.welcome]} Welcome`, description: "Welcome new members", id: `${prefix}set welcome` },
+          { title: `${icons[all.selfmode]} Self Mode`, description: "Hanya owner yang bisa pakai", id: `${prefix}set selfmode` },
+          { title: `${icons[all.autoupdate]} Auto Update`, description: "Auto update dari GitHub", id: `${prefix}set autoupdate` },
+          { title: "🔄 Reset All", description: "Kembalikan ke default", id: `${prefix}set reset` },
+        ];
+        await sock.sendMessage(m.chat, {
+          text: "⚙️ *BOT SETTINGS*\n\nSilakan pilih opsi di bawah untuk mengubah konfigurasi bot.",
+          footer: `© ${setting.name}`,
+          interactiveButtons: [
+            singleSelectButton("⚙️ Configure", [{ title: "Settings", rows }])
+          ]
+        }, { quoted: m });
+      }
       break;
 
     case "cekupdate": case "checkupdate":
@@ -387,26 +390,6 @@ let msgHandler = async (upsert, sock, m) => {
     if (!q) return reply("📝 Masukkan teks!");
     await reply(`💬 ${q}`);
     break;
-    case "s": case "stiker": case "sticker":
-      if (!isImage && !isVideo && !isQuotedImage && !isQuotedVideo) return reply("📸 Kirim atau reply foto/video untuk dijadikan stiker!");
-      try {
-        await m.react("⏳");
-        const mediaMsg = isQuotedImage || isQuotedVideo ? { message: quotedMsg.message } : { message: m.message };
-        const buffer = await downloadMediaMessage(mediaMsg, "buffer", {}, { Pino, reuploadRequest: sock.updateMediaMessage });
-        const sticker = new Sticker(buffer, {
-          pack: stickerName,
-          author: stickerAuthor,
-          type: isVideo || isQuotedVideo ? "full" : "default",
-          quality: 80
-        });
-        await sock.sendMessage(m.chat, { sticker: await sticker.toBuffer() }, { quoted: m, ephemeralExpiration: m.contextInfo?.expiration });
-        await m.react("✅");
-      } catch (err) {
-        console.log(err);
-        await m.react("❌");
-        reply("❌ *Gagal membuat stiker!*");
-      }
-      break;
     case "cekidch": case "idch": case "checkidch":
       {
         const chatId = m.chat.split("@")[0];
@@ -1082,6 +1065,23 @@ let msgHandler = async (upsert, sock, m) => {
           await sock.sendMessage(m.chat, { video: result.buffer, caption: "🎬 *Video Enhanced*" }, { quoted: m, ephemeralExpiration: m.contextInfo?.expiration });
           await m.react("✅");
         } catch (err) { await m.react("❌"); reply("❌ *Gagal enhance video!*"); }
+      }
+      break;
+
+    case "unblur": case "videoenhance": case "venhance":
+      {
+        if (!isVideo && !isQuotedVideo) return reply("🎬 Kirim atau reply video untuk AI enhance!");
+        const res2k = q?.toLowerCase() === "4k" ? "4k" : "2k";
+        try {
+          await m.react("⏳");
+          await reply(`⏳ AI video enhance (${res2k})... bisa 1-2 menit`);
+          const qvid = m.quoted || m;
+          const buffer = await qvid.download();
+          const result = await unblurVideo(buffer, { resolution: res2k });
+          if (!result.success) return reply(`❌ *Gagal enhance!* ${result.error}`);
+          await sock.sendMessage(m.chat, { video: { url: result.url }, caption: `🎬 *Video Enhanced (${res2k.toUpperCase()})*` }, { quoted: m, ephemeralExpiration: m.contextInfo?.expiration });
+          await m.react("✅");
+        } catch (err) { await m.react("❌"); reply(`❌ *Gagal enhance!* ${err.message}`); }
       }
       break;
 
@@ -2154,54 +2154,6 @@ let msgHandler = async (upsert, sock, m) => {
                   { title: "👋 Welcome", description: `${icons[all.welcome]}`, id: `${prefix}set welcome` },
                   { title: "🔒 Self Mode", description: `${icons[all.selfmode]}`, id: `${prefix}set selfmode` },
                   { title: "🔄 Auto Update", description: `${icons[all.autoupdate]}`, id: `${prefix}set autoupdate` },
-                ]
-              }
-            ])
-          ]
-        }, { quoted: m, ephemeralExpiration: m.contextInfo?.expiration });
-      }
-      break;
-
-    case "set":
-      {
-        if (!isOwner && sender !== ownerNumber) return reply("👑 *Khusus Owner!*");
-        const key = args[0]?.toLowerCase();
-        if (key === "reset") {
-          botSettings.reset();
-          return reply("🔄 *Settings di-reset ke default!*");
-        }
-        if (key) {
-          const valid = ["autoread", "autotyping", "antispam", "gamemode", "welcome", "selfmode", "autoupdate"];
-          if (!valid.includes(key)) return reply(`❌ Key tidak valid!\n\nValid: ${valid.join(", ")}`);
-          const newVal = botSettings.toggle(key);
-          const labels = { autoread: "Auto Read", autotyping: "Auto Typing", antispam: "Anti Spam", gamemode: "Game Mode", welcome: "Welcome Message", selfmode: "Self Mode", autoupdate: "Auto Update" };
-          return reply(`⚙️ *${labels[key]}* → ${newVal ? "🟢 ON" : "🔴 OFF"}`);
-        }
-        // No key → show select button
-        const all = botSettings.all();
-        const labels = {
-          autoread: "Auto Read", autotyping: "Auto Typing", antispam: "Anti Spam",
-          gamemode: "Game Mode", welcome: "Welcome Message", selfmode: "Self Mode",
-          autoupdate: "Auto Update",
-        };
-        const icons = { true: "🟢", false: "🔴" };
-        await sock.sendMessage(m.chat, {
-          image: { url: "https://files.catbox.moe/7jmjhh.jpeg" },
-          caption: `⚙️ *BOT SETTINGS*\n\nPilih setting untuk toggle ON/OFF:`,
-          footer: `© ${setting.name}`,
-          interactiveButtons: [
-            singleSelectButton("⚙️ Toggle Setting", [
-              {
-                title: "Settings",
-                rows: [
-                  { title: `${icons[all.autoread]} Auto Read`, description: "Auto read messages", id: `${prefix}set autoread` },
-                  { title: `${icons[all.autotyping]} Auto Typing`, description: "Auto typing indicator", id: `${prefix}set autotyping` },
-                  { title: `${icons[all.antispam]} Anti Spam`, description: "Cooldown spam filter", id: `${prefix}set antispam` },
-                  { title: `${icons[all.gamemode]} Game Mode`, description: "Battle & hunt features", id: `${prefix}set gamemode` },
-                  { title: `${icons[all.welcome]} Welcome`, description: "Welcome new members", id: `${prefix}set welcome` },
-                  { title: `${icons[all.selfmode]} Self Mode`, description: "Only owner can use", id: `${prefix}set selfmode` },
-                  { title: `${icons[all.autoupdate]} Auto Update`, description: "Auto update dari GitHub", id: `${prefix}set autoupdate` },
-                  { title: "🔄 Reset All", description: "Kembalikan ke default", id: `${prefix}set reset` },
                 ]
               }
             ])

@@ -17,7 +17,7 @@ const BOTS_CONFIG = path.join(ROOT, "bots.json");
 
 // ─── State ───
 const bots = new Map();
-let menuActive = false; // prevent bot output during menu
+let menuActive = false;
 
 // ─── Icons ───
 const ic = {
@@ -39,6 +39,7 @@ const ic = {
   log:     chalk.blue("▪"),
   gear:    chalk.cyan("⚙"),
   link:    chalk.cyan("⇢"),
+  back:    chalk.gray("◀"),
 };
 
 // ─── Spinner ───
@@ -85,20 +86,31 @@ function clog(icon, time, msg) {
 }
 
 // ─── Arrow Key Select Menu ───
-function arrowSelect(title, items) {
+// showBack = true  -> tambahin "Kembali" di bawah
+// showBack = false -> main menu, ga ada kembali
+function arrowSelect(title, items, { showBack = false } = {}) {
+  const allItems = showBack
+    ? [...items, { label: "Kembali", desc: "", action: "__back__", isBack: true }]
+    : items;
+
   // fallback ke angka kalau bukan TTY
   if (!process.stdin.isTTY || !process.stdin.setRawMode) {
     return new Promise((resolve) => {
       console.log();
       console.log(`  ${chalk.cyan.bold(title)}`);
-      for (let i = 0; i < items.length; i++) {
-        console.log(`  ${chalk.cyan(i + 1)}. ${chalk.white(items[i].label)} ${chalk.gray(items[i].desc || "")}`);
+      for (let i = 0; i < allItems.length; i++) {
+        const lbl = allItems[i].isBack
+          ? chalk.gray(`${allItems[i].label}`)
+          : chalk.white(allItems[i].label);
+        console.log(`  ${chalk.cyan(i + 1)}. ${lbl} ${chalk.gray(allItems[i].desc || "")}`);
       }
       const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-      rl.question(`  ${ic.arrow} Pilih (1-${items.length}): `, (ans) => {
+      rl.question(`  ${ic.arrow} Pilih (1-${allItems.length}): `, (ans) => {
         rl.close();
         const idx = parseInt(ans) - 1;
-        resolve(items[idx] || null);
+        const picked = allItems[idx];
+        if (!picked || picked.isBack) { resolve(null); return; }
+        resolve(picked);
       });
     });
   }
@@ -106,67 +118,67 @@ function arrowSelect(title, items) {
   return new Promise((resolve) => {
     menuActive = true;
     let selected = 0;
-    const total = items.length;
+    const total = allItems.length;
+
+    function drawItem(i) {
+      const isSelected = i === selected;
+      const item = allItems[i];
+      const prefix = isSelected ? ic.sel : " ";
+      if (item.isBack) {
+        const label = isSelected ? chalk.cyan.bold(ic.back + " Kembali") : chalk.gray(ic.back + " Kembali");
+        return `  ${prefix} ${label}`;
+      }
+      const label = isSelected ? chalk.cyan.bold(item.label) : chalk.white(item.label);
+      const desc = item.desc ? chalk.gray(` ${item.desc}`) : "";
+      return `  ${prefix} ${label}${desc}`;
+    }
 
     function render() {
       process.stdout.write(`\x1B[${total + 2}A`);
       console.log();
-      console.log(`  ${chalk.cyan.bold(title)} ${chalk.gray("↑↓ pilih  enter konfirmasi")}`);
-      for (let i = 0; i < total; i++) {
-        const prefix = i === selected ? ic.sel : " ";
-        const label = i === selected
-          ? chalk.cyan.bold(items[i].label)
-          : chalk.white(items[i].label);
-        const desc = items[i].desc ? chalk.gray(` ${items[i].desc}`) : "";
-        console.log(`  ${prefix} ${label}${desc}`);
-      }
+      console.log(`  ${chalk.cyan.bold(title)} ${chalk.gray("↑↓ navigate  ← back  enter select")}`);
+      for (let i = 0; i < total; i++) console.log(drawItem(i));
     }
 
-    // initial render
+    // initial
     console.log();
-    console.log(`  ${chalk.cyan.bold(title)} ${chalk.gray("↑↓ pilih  enter konfirmasi")}`);
-    for (let i = 0; i < total; i++) {
-      const prefix = i === selected ? ic.sel : " ";
-      const label = i === selected
-        ? chalk.cyan.bold(items[i].label)
-        : chalk.white(items[i].label);
-      const desc = items[i].desc ? chalk.gray(` ${items[i].desc}`) : "";
-      console.log(`  ${prefix} ${label}${desc}`);
-    }
+    console.log(`  ${chalk.cyan.bold(title)} ${chalk.gray("↑↓ navigate  ← back  enter select")}`);
+    for (let i = 0; i < total; i++) console.log(drawItem(i));
 
     process.stdin.setRawMode(true);
     process.stdin.resume();
 
+    const cleanup = () => {
+      process.stdin.removeListener("data", onKey);
+      process.stdin.setRawMode(false);
+      process.stdin.pause();
+      menuActive = false;
+    };
+
     const onKey = (key) => {
       const s = key.toString();
-      if (s === "\x1B[A" || s === "k") { // up
+
+      if (s === "\x1B[A") { // up
         selected = (selected - 1 + total) % total;
         render();
-      } else if (s === "\x1B[B" || s === "j") { // down
+      } else if (s === "\x1B[B") { // down
         selected = (selected + 1) % total;
         render();
       } else if (s === "\r" || s === "\n") { // enter
-        process.stdin.removeListener("data", onKey);
-        process.stdin.setRawMode(false);
-        process.stdin.pause();
-        menuActive = false;
+        cleanup();
         console.log();
-        resolve(items[selected]);
+        const picked = allItems[selected];
+        if (picked.isBack) { resolve(null); return; }
+        resolve(picked);
+      } else if (s === "\x1B[D" || (s.length === 1 && s === "\x1B")) { // left arrow / esc = back
+        cleanup();
+        console.log();
+        resolve(null);
       } else if (s === "\x03") { // ctrl-c
-        process.stdin.removeListener("data", onKey);
-        process.stdin.setRawMode(false);
-        process.stdin.pause();
-        menuActive = false;
+        cleanup();
         console.log();
         for (const [n] of bots) stopBot(n);
         process.exit(0);
-      } else if (s === "\x1B" || s === "q") { // esc/q = back
-        process.stdin.removeListener("data", onKey);
-        process.stdin.setRawMode(false);
-        process.stdin.pause();
-        menuActive = false;
-        console.log();
-        resolve(null);
       }
     };
 
@@ -174,14 +186,34 @@ function arrowSelect(title, items) {
   });
 }
 
-// ─── Arrow Key Input (for text questions) ───
+// ─── Text Input ───
 function askInput(question) {
   return new Promise((resolve) => {
+    menuActive = false;
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     rl.question(`  ${ic.arrow} ${question} `, (ans) => {
       rl.close();
       resolve(ans.trim());
     });
+  });
+}
+
+// ─── Wait for any key then return to menu ───
+function waitForBack(msg) {
+  return new Promise((resolve) => {
+    if (!process.stdin.isTTY || !process.stdin.setRawMode) {
+      resolve(); return;
+    }
+    console.log(`  ${chalk.gray(msg || "← tekan tombol apapun untuk kembali")}`);
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    const onKey = () => {
+      process.stdin.removeListener("data", onKey);
+      process.stdin.setRawMode(false);
+      process.stdin.pause();
+      resolve();
+    };
+    process.stdin.on("data", onKey);
   });
 }
 
@@ -226,7 +258,9 @@ function showServerInfo() {
 
 // ─── Bot Process Manager ───
 function startBot(botConfig) {
-  const { name, phoneNumber, pairingCode, sessionDir } = botConfig;
+  const { name, phoneNumber, pairingCode } = botConfig;
+  // always derive sessionDir from ROOT to avoid stale absolute paths
+  const sessionDir = path.join(SESSIONS_DIR, name);
   if (bots.has(name) && bots.get(name).proc) {
     clog(ic.warn, true, `Bot ${chalk.cyan(name)} sudah berjalan`);
     return;
@@ -341,7 +375,7 @@ function restartBot(name) {
   setTimeout(() => startBot(entry.config), 1500);
 }
 
-// ─── Bot Picker (arrow select from bot list) ───
+// ─── Bot Picker (with arrow + back) ───
 async function pickBot(action) {
   const botsList = loadBotsConfig();
   if (botsList.length === 0) {
@@ -352,16 +386,44 @@ async function pickBot(action) {
 
   const items = botsList.map(b => {
     const running = bots.get(b.name);
-    const status = running?.status === "connected" ? chalk.green("on") : running?.status === "connecting" ? chalk.yellow("...") : chalk.red("off");
+    const status = running?.status === "connected" ? chalk.green("on")
+      : running?.status === "connecting" ? chalk.yellow("...")
+      : chalk.red("off");
     return { label: b.name, desc: `${b.phoneNumber} [${status}]`, value: b };
   });
 
-  const picked = await arrowSelect(`Pilih bot untuk ${action}:`, items);
+  const picked = await arrowSelect(`Pilih bot (${action}):`, items, { showBack: true });
   return picked?.value || null;
 }
 
-// ─── Actions ───
-async function addBot() {
+// ─── Sub-menus ───
+
+// ── Start Bot submenu
+async function menuStartBot() {
+  const bot = await pickBot("start");
+  if (!bot) return; // back
+  startBot(bot);
+  await waitForBack();
+}
+
+// ── Stop Bot submenu
+async function menuStopBot() {
+  const bot = await pickBot("stop");
+  if (!bot) return;
+  stopBot(bot.name);
+  await waitForBack();
+}
+
+// ── Restart Bot submenu
+async function menuRestartBot() {
+  const bot = await pickBot("restart");
+  if (!bot) return;
+  restartBot(bot.name);
+  await waitForBack();
+}
+
+// ── Add Bot
+async function menuAddBot() {
   console.log();
   console.log(`  ${ic.gear} ${chalk.cyan.bold("Tambah Bot Baru")}`);
   console.log(`  ${chalk.gray("─".repeat(30))}`);
@@ -378,54 +440,28 @@ async function addBot() {
   }
 
   const sessionDir = path.join(SESSIONS_DIR, name);
-  const botConfig = { name, phoneNumber, pairingCode: pairingCode || "", sessionDir };
+  const botConfig = { name, phoneNumber, pairingCode: pairingCode || "" };
   botsList.push(botConfig);
   saveBotsConfig(botsList);
   ensureDir(sessionDir);
-
   clog(ic.check, false, `Bot ${chalk.cyan(name)} ditambahkan`);
 
   const yn = await arrowSelect("Start sekarang?", [
-    { label: "Ya", desc: "start bot" },
-    { label: "Nanti", desc: "kembali ke menu" },
-  ]);
-  if (yn?.label === "Ya") startBot(botConfig);
-}
-
-async function setupOwner() {
-  console.log();
-  console.log(`  ${ic.gear} ${chalk.cyan.bold("Setup")}`);
-  console.log(`  ${chalk.gray("─".repeat(30))}`);
-
-  let setting;
-  try {
-    const mod = await import("./setting.js");
-    setting = mod.default;
-  } catch {
-    setting = { name: "SHIKYTEMO", owner: "" };
-  }
-
-  console.log(`  ${ic.info} nama  : ${chalk.cyan(setting.name)}`);
-  console.log(`  ${ic.info} owner : ${chalk.cyan(setting.owner)}`);
-  console.log();
-  const newName = await askInput("Nama bot baru (enter=skip):");
-  const newOwner = await askInput("Owner number (enter=skip):");
-
-  if (newName || newOwner) {
-    const sName = newName || setting.name;
-    const sOwner = newOwner || setting.owner;
-    const content = `const setting = {\n    name: "${sName}",\n    owner: "${sOwner}",\n    admins: [],  // tambah nomor admin: ["628xxxx", "628xxxx"]\n};\n\nexport default setting;\n`;
-    fs.writeFileSync(path.join(ROOT, "setting.js"), content);
-    clog(ic.check, false, `Updated ${ic.arrow} name=${chalk.cyan(sName)} owner=${chalk.cyan(sOwner)}`);
-  } else {
-    clog(ic.dot, false, chalk.gray("Tidak ada perubahan"));
+    { label: "Ya", desc: "jalankan bot" },
+    { label: "Nanti", desc: "kembali" },
+  ], { showBack: false });
+  if (yn?.label === "Ya") {
+    startBot(botConfig);
+    await waitForBack();
   }
 }
 
-function showBotList() {
+// ── Bot List
+async function menuBotList() {
   const botsList = loadBotsConfig();
   if (botsList.length === 0) {
-    clog(ic.warn, false, `Belum ada bot`);
+    clog(ic.warn, false, "Belum ada bot");
+    await waitForBack();
     return;
   }
   console.log();
@@ -443,9 +479,11 @@ function showBotList() {
     console.log(`  ${badge} ${chalk.white.bold(b.name)} ${chalk.gray(b.phoneNumber)}${uptime}`);
   }
   console.log();
+  await waitForBack();
 }
 
-async function showLogs() {
+// ── Logs
+async function menuLogs() {
   const botsList = loadBotsConfig();
   if (botsList.length === 0) { clog(ic.warn, false, "Tidak ada bot"); return; }
 
@@ -454,14 +492,15 @@ async function showLogs() {
     name = botsList[0].name;
   } else {
     const items = botsList.map(b => ({ label: b.name, desc: b.phoneNumber }));
-    const picked = await arrowSelect("Lihat log bot:", items);
-    if (!picked) return;
+    const picked = await arrowSelect("Lihat log bot:", items, { showBack: true });
+    if (!picked) return; // back
     name = picked.label;
   }
 
   const logFile = path.join(ROOT, "logs", `${name}.log`);
   if (!fs.existsSync(logFile)) {
     clog(ic.warn, false, `Log ${chalk.cyan(name)} tidak ada`);
+    await waitForBack();
     return;
   }
   const lines = fs.readFileSync(logFile, "utf-8").split("\n").filter(Boolean);
@@ -473,6 +512,80 @@ async function showLogs() {
     console.log(`  ${ic.dot} ${chalk.gray(l)}`);
   }
   console.log();
+  await waitForBack();
+}
+
+// ── Setup
+async function menuSetup() {
+  console.log();
+  console.log(`  ${ic.gear} ${chalk.cyan.bold("Setup")}`);
+  console.log(`  ${chalk.gray("─".repeat(30))}`);
+
+  let setting;
+  try {
+    const mod = await import("./setting.js");
+    setting = mod.default;
+  } catch {
+    setting = { name: "SHIKYTEMO", owner: "" };
+  }
+
+  console.log(`  ${ic.info} nama  : ${chalk.cyan(setting.name)}`);
+  console.log(`  ${ic.info} owner : ${chalk.cyan(setting.owner)}`);
+  console.log();
+
+  const what = await arrowSelect("Mau ubah apa?", [
+    { label: "Nama Bot", desc: `sekarang: ${setting.name}`, action: "name" },
+    { label: "Owner Number", desc: `sekarang: ${setting.owner}`, action: "owner" },
+    { label: "Dua-duanya", desc: "ubah nama & owner", action: "both" },
+  ], { showBack: true });
+
+  if (!what) return;
+
+  let newName = "", newOwner = "";
+  if (what.action === "name" || what.action === "both") {
+    newName = await askInput("Nama bot baru:");
+  }
+  if (what.action === "owner" || what.action === "both") {
+    newOwner = await askInput("Owner number:");
+  }
+
+  if (newName || newOwner) {
+    const sName = newName || setting.name;
+    const sOwner = newOwner || setting.owner;
+    const content = `const setting = {\n    name: "${sName}",\n    owner: "${sOwner}",\n    admins: [],  // tambah nomor admin: ["628xxxx", "628xxxx"]\n};\n\nexport default setting;\n`;
+    fs.writeFileSync(path.join(ROOT, "setting.js"), content);
+    clog(ic.check, false, `Updated ${ic.arrow} name=${chalk.cyan(sName)} owner=${chalk.cyan(sOwner)}`);
+  } else {
+    clog(ic.dot, false, chalk.gray("Tidak ada perubahan"));
+  }
+  await waitForBack();
+}
+
+// ── Remove Bot
+async function menuRemoveBot() {
+  const bot = await pickBot("remove");
+  if (!bot) return;
+
+  const confirm = await arrowSelect(`Hapus ${chalk.cyan(bot.name)}?`, [
+    { label: "Ya, hapus", desc: "config dihapus, session tetap aman" },
+    { label: "Batal", desc: "kembali" },
+  ], { showBack: false });
+
+  if (confirm?.label === "Ya, hapus") {
+    stopBot(bot.name);
+    bots.delete(bot.name);
+    let bl = loadBotsConfig();
+    bl = bl.filter(b => b.name !== bot.name);
+    saveBotsConfig(bl);
+    clog(ic.check, false, `${chalk.cyan(bot.name)} dihapus ${chalk.gray("(session aman)")}`);
+  }
+  await waitForBack();
+}
+
+// ── Server Info
+async function menuServerInfo() {
+  showServerInfo();
+  await waitForBack();
 }
 
 function migrateOldSession() {
@@ -506,7 +619,7 @@ function migrateOldSession() {
     if (fs.statSync(src).isFile()) fs.copyFileSync(src, dst);
   }
 
-  const botConfig = { name, phoneNumber: phone, pairingCode: pairing, sessionDir };
+  const botConfig = { name, phoneNumber: phone, pairingCode: pairing };
   botsList.push(botConfig);
   saveBotsConfig(botsList);
   clog(ic.check, false, `Migrasi session ${ic.arrow} bot ${chalk.cyan("main")} (${chalk.gray(phone)})`);
@@ -531,57 +644,26 @@ const MENU_ITEMS = [
 
 async function handleAction(action) {
   switch (action) {
-    case "start": {
-      const bot = await pickBot("start");
-      if (bot) startBot(bot);
-      break;
-    }
-    case "stop": {
-      const bot = await pickBot("stop");
-      if (bot) stopBot(bot.name);
-      break;
-    }
-    case "restart": {
-      const bot = await pickBot("restart");
-      if (bot) restartBot(bot.name);
-      break;
-    }
+    case "start":    await menuStartBot(); break;
+    case "stop":     await menuStopBot(); break;
+    case "restart":  await menuRestartBot(); break;
     case "startall": {
       const all = loadBotsConfig();
       if (all.length === 0) { clog(ic.warn, false, "Tidak ada bot"); break; }
       for (const b of all) startBot(b);
+      await waitForBack();
       break;
     }
     case "stopall":
       for (const [n] of bots) stopBot(n);
+      await waitForBack();
       break;
-    case "add":
-      await addBot();
-      break;
-    case "list":
-      showBotList();
-      break;
-    case "logs":
-      await showLogs();
-      break;
-    case "setup":
-      await setupOwner();
-      break;
-    case "remove": {
-      const bot = await pickBot("remove");
-      if (bot) {
-        stopBot(bot.name);
-        bots.delete(bot.name);
-        let bl = loadBotsConfig();
-        bl = bl.filter(b => b.name !== bot.name);
-        saveBotsConfig(bl);
-        clog(ic.check, false, `${chalk.cyan(bot.name)} dihapus ${chalk.gray("(session aman)")}`);
-      }
-      break;
-    }
-    case "info":
-      showServerInfo();
-      break;
+    case "add":      await menuAddBot(); break;
+    case "list":     await menuBotList(); break;
+    case "logs":     await menuLogs(); break;
+    case "setup":    await menuSetup(); break;
+    case "remove":   await menuRemoveBot(); break;
+    case "info":     await menuServerInfo(); break;
     case "clear":
       clear();
       showServerInfo();
@@ -654,15 +736,12 @@ async function main() {
   ensureDir(SESSIONS_DIR);
   migrateOldSession();
 
-  // main loop - show menu repeatedly
   while (true) {
     const choice = await arrowSelect("Menu", MENU_ITEMS);
-    if (!choice) continue;
+    if (!choice) continue; // ESC on main menu = stay
     const cont = await handleAction(choice.action);
     if (cont === false) break;
-    // show random fact before next menu
     showRandomFact();
-    await new Promise(r => setTimeout(r, 500));
   }
 }
 

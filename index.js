@@ -19,7 +19,6 @@ import config from "./config.js";
 import log from "./lib/logger.js";
 import db from "./lib/database.js";
 import botSettings from "./lib/botSettings.js";
-import plugins from "./lib/plugins.js";
 import { checkUpdate, doUpdate } from "./lib/autoUpdate.js";
 
 // ─── Graceful shutdown ───
@@ -53,10 +52,8 @@ function clearSessionCache() {
 clearSessionCache();
 setInterval(clearSessionCache, 30 * 60 * 1000);
 
-const logger = Pino({ level: "silent" });
-
 async function connectToWhatsApp() {
-  await plugins.load();
+  const logger = Pino({ level: "silent" });
   const { state, saveCreds } = await useMultiFileAuthState(`./session`);
   const { version } = await fetchLatestBaileysVersion();
   const { phoneNumber, pairingCode } = config;

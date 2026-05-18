@@ -3,13 +3,13 @@
     "jid": "12365021517@s.whatsapp.net",
     "name": "KimKiro",
     "level": 4,
-    "xp": 94,
+    "xp": 252,
     "money": 0,
     "limit": 99999,
     "role": "owner",
     "premium": false,
     "premiumExpiry": 0,
-    "totalCmd": 55,
+    "totalCmd": 70,
     "registered": 1778879542332,
     "lastDaily": 0,
     "lastReset": "2026-05-18"
@@ -42,7 +42,7 @@
     "totalCmd": 0,
     "registered": 1778891832976,
     "lastDaily": 0,
-    "lastReset": "2026-05-16"
+    "lastReset": "2026-05-18"
   },
   "120363373283469585@newsletter": {
     "jid": "120363373283469585@newsletter",
@@ -73,5 +73,20 @@
     "registered": 1779022203915,
     "lastDaily": 0,
     "lastReset": "2026-05-17"
+  },
+  "228952509518039@lid": {
+    "jid": "228952509518039@lid",
+    "name": "KimKiro",
+    "level": 2,
+    "xp": 10,
+    "money": 0,
+    "limit": 25,
+    "role": "user",
+    "premium": false,
+    "premiumExpiry": 0,
+    "totalCmd": 6,
+    "registered": 1779092857944,
+    "lastDaily": 0,
+    "lastReset": "2026-05-18"
   }
 }
