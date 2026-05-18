@@ -1,7 +1,7 @@
 {
   "name": "simple-wa-bot",
   "description": "Simple Whatsapp Bot Base, using library Baileys",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "scripts": {
     "start": "node index.js"
   },
@@ -22,12 +22,10 @@
     "moment-timezone": "^0.5.45",
     "qrcode-terminal": "^0.12.0",
     "qs": "^6.15.2",
-    "sharp": "^0.34.5",
     "shileys": "^1.0.3",
     "snapsave-media-downloader": "^2.4.0",
     "spottydl": "^0.2.7",
-    "uuid": "^14.0.0",
-    "wa-sticker-formatter": "^4.4.4"
+    "uuid": "^14.0.0"
   },
   "devDependencies": {
     "eslint": "^8.22.0"
