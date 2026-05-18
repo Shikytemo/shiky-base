@@ -46,36 +46,25 @@ function showServerInfo() {
   const cpuCount = os.cpus().length || 1;
   const cpuModel = os.cpus()[0]?.model || os.arch();
   const nodeVer = process.version;
-  const platform = `${os.type()} ${os.release().split("-")[0]} ${os.arch()}`;
+  const plat = `${os.arch()} ${os.type()}`;
   const botsList = loadBotsConfig();
   const sessionCount = fs.existsSync(SESSIONS_DIR) ? fs.readdirSync(SESSIONS_DIR).filter(f => fs.statSync(path.join(SESSIONS_DIR, f)).isDirectory()).length : 0;
 
-  const logo = [
-    chalk.cyan("    ███████╗██╗  ██╗██╗██╗  ██╗██╗   ██╗"),
-    chalk.cyan("    ██╔════╝██║  ██║██║██║ ██╔╝╚██╗ ██╔╝"),
-    chalk.cyan("    ███████╗███████║██║█████╔╝  ╚████╔╝ "),
-    chalk.cyan("    ╚════██║██╔══██║██║██╔═██╗   ╚██╔╝  "),
-    chalk.cyan("    ███████║██║  ██║██║██║  ██╗   ██║   "),
-    chalk.cyan("    ╚══════╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝   ╚═╝   "),
-  ];
-
-  const info = [
-    `${chalk.cyan("OS")}          ${chalk.white(platform)}`,
-    `${chalk.cyan("Uptime")}      ${chalk.white(`${h}h ${m}m`)}`,
-    `${chalk.cyan("CPU")}         ${chalk.white(`${cpuModel} (${cpuCount} cores)`)}`,
-    `${chalk.cyan("Memory")}      ${chalk.white(`${usedMem} / ${totalMem} GB`)}`,
-    `${chalk.cyan("Node")}        ${chalk.white(nodeVer)}`,
-    `${chalk.cyan("Bots")}        ${chalk.white(`${botsList.length} configured, ${sessionCount} sessions`)}`,
-    `${chalk.cyan("Time")}        ${chalk.white(moment().format("DD MMM YYYY HH:mm:ss"))}`,
-  ];
+  // ─── Compact header ───
+  let settingName = "SHIKYTEMO";
+  try {
+    const s = fs.readFileSync(path.join(ROOT, "setting.js"), "utf-8");
+    const nm = s.match(/name:\s*"([^"]+)"/);
+    if (nm) settingName = nm[1];
+  } catch {}
 
   console.log();
-  for (let i = 0; i < Math.max(logo.length, info.length); i++) {
-    const left = logo[i] || " ".repeat(42);
-    const right = info[i] || "";
-    console.log(`${left}  ${right}`);
-  }
-  console.log();
+  console.log(`  ${chalk.cyan.bold(settingName)} ${chalk.gray("Bot Manager")}`);
+  console.log(divider());
+  console.log(`  ${chalk.cyan("os")}     ${chalk.white(plat)}    ${chalk.cyan("mem")}  ${chalk.white(`${usedMem}/${totalMem}G`)}`);
+  console.log(`  ${chalk.cyan("cpu")}    ${chalk.white(cpuModel)} ${chalk.gray(`(${cpuCount})`)}  ${chalk.cyan("node")} ${chalk.white(nodeVer)}`);
+  console.log(`  ${chalk.cyan("up")}     ${chalk.white(`${h}h ${m}m`)}      ${chalk.cyan("bots")} ${chalk.white(`${botsList.length} (${sessionCount} sess)`)}`);
+  console.log(`  ${chalk.cyan("time")}   ${chalk.white(moment().format("DD/MM/YY HH:mm"))}`);
   console.log(divider());
 }
 
