@@ -2,17 +2,17 @@
   "12365021517@s.whatsapp.net": {
     "jid": "12365021517@s.whatsapp.net",
     "name": "KimKiro",
-    "level": 3,
-    "xp": 247,
+    "level": 4,
+    "xp": 94,
     "money": 0,
-    "limit": null,
+    "limit": 99999,
     "role": "owner",
     "premium": false,
     "premiumExpiry": 0,
-    "totalCmd": 44,
+    "totalCmd": 55,
     "registered": 1778879542332,
     "lastDaily": 0,
-    "lastReset": "2026-05-16"
+    "lastReset": "2026-05-18"
   },
   "6283151666244@s.whatsapp.net": {
     "jid": "6283151666244@s.whatsapp.net",
@@ -58,5 +58,20 @@
     "registered": 1778912733615,
     "lastDaily": 0,
     "lastReset": "2026-05-16"
+  },
+  "6282299799649@s.whatsapp.net": {
+    "jid": "6282299799649@s.whatsapp.net",
+    "name": "aaa",
+    "level": 1,
+    "xp": 0,
+    "money": 0,
+    "limit": 25,
+    "role": "user",
+    "premium": false,
+    "premiumExpiry": 0,
+    "totalCmd": 0,
+    "registered": 1779022203915,
+    "lastDaily": 0,
+    "lastReset": "2026-05-17"
   }
 }

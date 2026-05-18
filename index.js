@@ -19,6 +19,8 @@ import config from "./config.js";
 import log from "./lib/logger.js";
 import db from "./lib/database.js";
 import botSettings from "./lib/botSettings.js";
+import plugins from "./lib/plugins.js";
+import { checkUpdate, doUpdate } from "./lib/autoUpdate.js";
 
 // ─── Graceful shutdown ───
 process.on("SIGINT", () => { db.flush(); process.exit(0); });
@@ -54,6 +56,7 @@ setInterval(clearSessionCache, 30 * 60 * 1000);
 const logger = Pino({ level: "silent" });
 
 async function connectToWhatsApp() {
+  await plugins.load();
   const { state, saveCreds } = await useMultiFileAuthState(`./session`);
   const { version } = await fetchLatestBaileysVersion();
   const { phoneNumber, pairingCode } = config;
@@ -149,11 +152,12 @@ async function connectToWhatsApp() {
       const groupMeta = await sock.groupMetadata(id);
       const groupName = groupMeta.subject;
       for (const p of participants) {
-        const jid = p;
-        const num = jid.split("@")[0];
+        // participant bisa string atau object { jid, phoneNumber }
+        const jid = typeof p === "string" ? p : (p.jid || p.phoneNumber + "@s.whatsapp.net" || p);
+        const num = typeof jid === "string" ? jid.split("@")[0] : String(jid);
         if (action === "add") {
           await sock.sendMessage(id, {
-            text: `👋 *Selamat Datang!*\n\n@${num}\n\nSelamat bergabung di *${groupName}*! 🎉\n\nJangan lupa baca deskripsi grup ya~`,
+            text: `👋 *Selamat Datang!*\n\n@${num}\n\nSelamat bergabung di *${groupName}*! 🎉\n\nJangan lupa intro ya~`,
             mentions: [jid]
           });
         } else if (action === "remove") {
@@ -168,6 +172,22 @@ async function connectToWhatsApp() {
 }
 
 connectToWhatsApp();
+
+// ─── Auto Update (check every 30 min) ───
+const AUTO_UPDATE_INTERVAL = 30 * 60 * 1000;
+setInterval(async () => {
+  if (!botSettings.get("autoupdate")) return;
+  try {
+    const check = await checkUpdate();
+    if (check.hasUpdate) {
+      log.info(`Auto-update: ${check.commits.length} update ditemukan, mengupdate...`);
+      const result = await doUpdate();
+      log.info(`Auto-update: ${result.message.replace(/\*+/g, "")}`);
+    }
+  } catch (err) {
+    log.error(`Auto-update check failed: ${err.message}`);
+  }
+}, AUTO_UPDATE_INTERVAL);
 
 // ─── Hot reload handler ───
 const watcher = chokidar.watch("./handler.js", {

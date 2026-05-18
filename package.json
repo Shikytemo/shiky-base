@@ -8,24 +8,26 @@
   "license": "MIT",
   "type": "module",
   "dependencies": {
-    "@distube/ytdl-core": "^4.16.12",
-    "@jsquash/webp": "^1.5.0",
     "@ybd-project/ytdl-core": "^6.0.8",
     "any-ascii": "^0.3.2",
     "axios": "^1.13.1",
     "chalk": "^4.1.2",
     "cheerio": "^1.2.0",
     "chokidar": "^4.0.3",
+    "crypto-js": "^4.2.0",
     "dotenv": "^17.2.1",
     "form-data": "^4.0.5",
-    "jimp": "^1.6.1",
     "link-preview-js": "^3.0.14",
+    "mime-types": "^3.0.2",
     "moment-timezone": "^0.5.45",
     "qrcode-terminal": "^0.12.0",
+    "qs": "^6.15.2",
+    "sharp": "^0.34.5",
     "shileys": "^1.0.3",
     "snapsave-media-downloader": "^2.4.0",
     "spottydl": "^0.2.7",
-    "youtube-dl-exec": "^3.1.6"
+    "uuid": "^14.0.0",
+    "wa-sticker-formatter": "^4.4.4"
   },
   "devDependencies": {
     "eslint": "^8.22.0"
