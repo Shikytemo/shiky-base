@@ -15,6 +15,7 @@ import log from "./lib/logger.js";
 import db from "./lib/database.js";
 import { TIERS } from "./lib/database.js";
 import game from "./lib/game.js";
+import { startGame, checkAnswer, endGame, getGame } from "./lib/gameSession.js";
 import botSettings from "./lib/botSettings.js";
 import { checkUpdate, doUpdate } from "./lib/autoUpdate.js";
 import { createSticker } from "./lib/sticker.js";
@@ -201,6 +202,56 @@ let msgHandler = async (upsert, sock, m) => {
       interactiveButtons: [urlButton("GitHub", "https://github.com/shikytemo")]
     }, { quoted: m, ephemeralExpiration: m.contextInfo?.expiration });
 
+    // ─── Game Answer Interceptor ───
+    const activeGame = getGame(sender);
+    if (activeGame && !isCmd) {
+      const userAnswer = budy.trim();
+      const result = checkAnswer(sender, userAnswer);
+      
+      if (result.correct) {
+        const gameNames = {
+          tebakgambar: 'Tebak Gambar', caklontong: 'Cak Lontong', family100: 'Family 100',
+          tebakbendera: 'Tebak Bendera', tebakkata: 'Tebak Kata', tebaklagu: 'Tebak Lagu',
+          susunkata: 'Susun Kata', asahotak: 'Asah Otak'
+        };
+        const gameName = gameNames[result.gameType] || result.gameType;
+        
+        const xpGain = result.reward.xp;
+        const moneyGain = result.reward.money;
+        db.addXp(sender, xpGain);
+        db.addMoney(sender, moneyGain);
+        
+        const tierInfo = db.getTierProgress(user.level);
+        const levelStr = `📊 *Level:* ${user.level} (${tierInfo.percent}%)`;
+        
+        await sock.sendMessage(m.chat, {
+          text: `🎉 *BENAR!* Jawabanmu tepat!\n\n` +
+            `🎮 Game: ${gameName}\n` +
+            `🎯 Percobaan: ${result.tries}x\n\n` +
+            `🏆 *Reward:*\n` +
+            `⚡ +${xpGain} XP\n` +
+            `💰 +${moneyGain.toLocaleString()} Gold\n\n` +
+            `${levelStr}\n` +
+            `🏅 Tier: ${tierInfo.tier.badge} *${tierInfo.tier.name}*`
+        }, { quoted: m, ephemeralExpiration: m.contextInfo?.expiration });
+        await m.react('🎉');
+        return;
+      } else if (result.expired) {
+        endGame(sender);
+        await sock.sendMessage(m.chat, {
+          text: `❌ *Kesempatan habis!* Kamu sudah 3x salah.\n\n🔑 Jawaban yang benar: *${result.answer}*\n\nKetik .${result.gameType} untuk main lagi!`
+        }, { quoted: m, ephemeralExpiration: m.contextInfo?.expiration });
+        await m.react('😢');
+        return;
+      } else {
+        await sock.sendMessage(m.chat, {
+          text: `❌ *Salah!* Coba lagi!\n\n🎯 Sisa kesempatan: ${result.remaining}x\n\n💡 _Ketik jawabanmu langsung, tanpa prefix_`
+        }, { quoted: m, ephemeralExpiration: m.contextInfo?.expiration });
+        await m.react('❌');
+        return;
+      }
+    }
+    
     // ─── Legacy Fitur (Switch) ───
   let validCmd = true;
   switch (cmdName) {
@@ -300,6 +351,17 @@ let msgHandler = async (upsert, sock, m) => {
             ])
           ]
         }, { quoted: m });
+      }
+      break;
+
+    case "nyerah": case "menyerah": case "giveup":
+      {
+        const game = getGame(sender);
+        if (!game) return reply("🤷 Kamu tidak sedang dalam permainan!");
+        endGame(sender);
+        await sock.sendMessage(m.chat, {
+          text: `😢 *Kamu menyerah!*\n\n🔑 Jawaban yang benar: *${game.answer}*\n\nKetik .${game.gameType} untuk main lagi!`
+        }, { quoted: m, ephemeralExpiration: m.contextInfo?.expiration });
       }
       break;
 
@@ -2398,12 +2460,20 @@ let msgHandler = async (upsert, sock, m) => {
         try {
           await m.react('⏳')
           const result = needsInput ? await scrape[fn](q) : await scrape[fn]()
+          
+          // Game commands: store session instead of revealing answer
+          const gameCmds = ['tebakgambar','caklontong','family100','tebakbendera','tebakkata','tebaklagu','susunkata','asahotak']
+          const isGame = gameCmds.includes(fn) && result.answer
+          
           if (result.type === 'image') {
             await sock.sendMessage(m.chat, {
               image: { url: result.url },
               caption: result.caption || `${emoji} ${cmdName}`
             }, { quoted: m })
-            if (result.answer) {
+            if (isGame) {
+              startGame(sender, fn, result.answer)
+              await reply(`⏰ *Jawab sekarang!* Ketik jawabanmu, kamu punya waktu 2 menit!\n\nKetik \`.nyerah\` untuk menyerah.`)
+            } else if (result.answer) {
               await sock.sendMessage(m.chat, {
                 text: `🔑 *Jawaban:* ||${result.answer}||`
               }, { quoted: m })
@@ -2415,7 +2485,10 @@ let msgHandler = async (upsert, sock, m) => {
               ptt: false
             }, { quoted: m })
             if (result.caption) await reply(result.caption)
-            if (result.answer) {
+            if (isGame) {
+              startGame(sender, fn, result.answer)
+              await reply(`⏰ *Jawab sekarang!* Ketik jawabanmu, kamu punya waktu 2 menit!\n\nKetik \`.nyerah\` untuk menyerah.`)
+            } else if (result.answer) {
               await sock.sendMessage(m.chat, {
                 text: `🔑 *Jawaban:* ||${result.answer}||`
               }, { quoted: m })
@@ -2424,7 +2497,10 @@ let msgHandler = async (upsert, sock, m) => {
             let txt = result.text || kv(result.data) || ''
             if (!txt) return reply('❌ *Response tidak valid dari API*')
             await reply(txt.slice(0, 4000))
-            if (result.answer) {
+            if (isGame) {
+              startGame(sender, fn, result.answer)
+              await reply(`⏰ *Jawab sekarang!* Ketik jawabanmu, kamu punya waktu 2 menit!\n\nKetik \`.nyerah\` untuk menyerah.`)
+            } else if (result.answer) {
               await sock.sendMessage(m.chat, {
                 text: `🔑 *Jawaban:* ||${result.answer}||`
               }, { quoted: m })
