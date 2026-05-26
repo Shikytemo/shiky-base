@@ -304,7 +304,67 @@ let msgHandler = async (upsert, sock, m) => {
       break;
 
     case "ping": case "test": case "tes":
-      await reply(`🏓 *Pong!*\n\n⚡ Speed: ${Date.now() - t * 1000} ms`);
+      {
+        const latency = Date.now() - t * 1000;
+        const uptime = process.uptime();
+        const d = Math.floor(uptime / 86400);
+        const h = Math.floor((uptime % 86400) / 3600);
+        const m = Math.floor((uptime % 3600) / 60);
+        const s = Math.floor(uptime % 60);
+        const uptimeStr = `${d}d ${h}h ${m}m ${s}s`;
+        
+        const mem = process.memoryUsage();
+        const memMB = (mem.rss / 1024 / 1024).toFixed(1);
+        const heapMB = (mem.heapUsed / 1024 / 1024).toFixed(1);
+        const heapTotal = (mem.heapTotal / 1024 / 1024).toFixed(1);
+        
+        const stats = db.getStats();
+        const nodeVer = process.version;
+        const plat = process.platform;
+        const arch = process.arch;
+        
+        // API command count (functions from api/index.js)
+        const apiFns = ['artinama','tafsirmimpi','zodiak','nomorhoki','cekpenyakit','cocoknama','rejekiweton','gemini','deepseek','duckai','duckimg','gptoss','metaai','llama','ttdl','igdl','ytdl','fbdl','twdl','spdl','scdl2','pindl','ccdl','tebakgambar','caklontong','family100','tebakbendera','tebakkata','tebaklagu','susunkata','asahotak','cnn','cnbc','antara','kompas','liputan6','tribun','brat','blur','greyscale','invert','duck','brave','ytsearch2','ttsearch2','igsearch','ghsearch','igstalk2','ttstalk','twstalk','ghstalk2','cuaca2','bmkg','jadwaltv','ss','rwaifu','rneko','rmeme','rjoke','rquote'];
+        const apiTotal = apiFns.filter(f => typeof scrape[f] === 'function').length;
+        
+        const txt = `\`\`\`ansi
+[1;36m     ╔══════════════════════════════╗
+     ║     🚀 SHIKYTEMO BOT       ║
+     ╚══════════════════════════════╝[0m
+
+[1;33m  ╭─── Bot Info ─────────────────╮[0m
+  │ [1;37mName    [0m │ [1;32m${setting.name}[0m
+  │ [1;37mVersion [0m │ [1;32mv3.1.0[0m
+  │ [1;37mUptime  [0m │ [1;32m${uptimeStr}[0m
+  │ [1;37mPing    [0m │ [1;32m${latency} ms[0m
+  [1;33m  ╰──────────────────────────────╯[0m
+
+  [1;34m  ╭─── System ───────────────────╮[0m
+  │ [1;37mNode.js [0m │ [1;32m${nodeVer}[0m
+  │ [1;37mOS      [0m │ [1;32m${plat} ${arch}[0m
+  │ [1;37mRAM     [0m │ [1;32m${memMB} MB[0m
+  │ [1;37mHeap    [0m │ [1;32m${heapMB} / ${heapTotal} MB[0m
+  [1;34m  ╰──────────────────────────────╯[0m
+
+  [1;35m  ╭─── Database ─────────────────╮[0m
+  │ [1;37mUsers   [0m │ [1;32m${stats.total}[0m
+  │ [1;37mPremium [0m │ [1;32m${stats.premium}[0m
+  │ [1;37mAdmins  [0m │ [1;32m${stats.admins}[0m
+  │ [1;37mTop LVL [0m │ [1;32m${stats.topLevel}[0m
+  │ [1;37mTotal XP[0m │ [1;32m${stats.totalXp.toLocaleString()}[0m
+  │ [1;37mGold    [0m │ [1;32m${stats.totalMoney.toLocaleString()} 💰[0m
+  [1;35m  ╰──────────────────────────────╯[0m
+
+  [1;36m  ╭─── API ──────────────────────╮[0m
+  │ [1;37mCommands[0m │ [1;32m${apiTotal} ready[0m
+  │ [1;37mStatus  [0m │ [1;32m✅ Online[0m
+  [1;36m  ╰──────────────────────────────╯[0m
+
+[0;90m© ${setting.name} · github.com/Shikytemo[0m
+\`\`\``;
+        
+        await sock.sendMessage(m.chat, { text: txt }, { quoted: m, ephemeralExpiration: m.contextInfo?.expiration });
+      }
       break;
 
     case "s": case "stiker": case "sticker":
