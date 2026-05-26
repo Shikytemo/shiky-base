@@ -10,7 +10,7 @@ import Pino from "pino";
 
 import { msgFilter } from "./lib/utils.js";
 import * as scrape from "./lib/scrape/index.js";
-const { catboxUpload, tiktokDl, snapDl, threadsDl, douyinDl, pinterestDl, Jawa, mlbbHero, searchLirik, ttSearch, npmstalk, igstalk, githubstalk, mediafireDl, scdl, jooxSearch, jooxDl, sfileSearch, sfileDl, capcutDl, searchMp3, appSearch, stickerSearch, ttRandom, surah, ssstik, dailyMotion, searchAppleMusic, snapinsta, fbdl2, ocrBuffer, whatMusic, nanoBanana, upscaleImage, upscaleVideo, wiki, define, kurs, currencyConvert, cuaca, googleSearch, animeInfo, movieInfo, berita, dolphinAI, editImg, ghibliAI, removeBg, qwenTTS, cekResi, nikParse, teraboxDL, ssweb, kbbiSearch, cookpadSearch, transcribe, perplexed, turboseek, bypassCity, lyricsSearch, unsplashSearch, pexelsSearch, claude3, geminiAI, megaDL, gdriveDL, scribdDL, animeQuote, getppWA, waifu2x, photoEnhancer, unblurVideo, artinama, tafsirmimpi, zodiak, nomorhoki, cekpenyakit, cocoknama, rejekiweton, gemini, deepseek, duckai, duckimg, gptoss, metaai, llama, ttdl, igdl, ytdl, fbdl, twdl, spdl, scdl2, pindl, ccdl, tebakgambar, caklontong, family100, tebakbendera, tebakkata, tebaklagu, susunkata, cermat, cnn, cnbc, antara, kompas, detik, tribun, brat, blur, greyscale, invert, sepia, pixelate, duck, brave, ytsearch2, ttsearch2, igsearch, ghsearch, igstalk2, ttstalk, twstalk, ghstalk2, cuaca2, bmkg, jadwaltv, ss, rmbg, rwaifu, rneko, rmeme, rjoke, rquote, fmt } = scrape;
+const { catboxUpload, tiktokDl, snapDl, threadsDl, douyinDl, pinterestDl, Jawa, mlbbHero, searchLirik, ttSearch, npmstalk, igstalk, githubstalk, mediafireDl, scdl, jooxSearch, jooxDl, sfileSearch, sfileDl, capcutDl, searchMp3, appSearch, stickerSearch, ttRandom, surah, ssstik, dailyMotion, searchAppleMusic, snapinsta, fbdl2, ocrBuffer, whatMusic, nanoBanana, upscaleImage, upscaleVideo, wiki, define, kurs, currencyConvert, cuaca, googleSearch, animeInfo, movieInfo, berita, dolphinAI, editImg, ghibliAI, removeBg, qwenTTS, cekResi, nikParse, teraboxDL, ssweb, kbbiSearch, cookpadSearch, transcribe, perplexed, turboseek, bypassCity, lyricsSearch, unsplashSearch, pexelsSearch, claude3, geminiAI, megaDL, gdriveDL, scribdDL, animeQuote, getppWA, waifu2x, photoEnhancer, unblurVideo, artinama, tafsirmimpi, zodiak, nomorhoki, cekpenyakit, cocoknama, rejekiweton, gemini, deepseek, duckai, duckimg, gptoss, metaai, llama, ttdl, igdl, ytdl, fbdl, twdl, spdl, scdl2, pindl, ccdl, tebakgambar, caklontong, family100, tebakbendera, tebakkata, tebaklagu, susunkata, cermat, cnn, cnbc, antara, kompas, detik, tribun, brat, blur, greyscale, invert, sepia, pixelate, duck, brave, ytsearch2, ttsearch2, igsearch, ghsearch, igstalk2, ttstalk, twstalk, ghstalk2, cuaca2, bmkg, jadwaltv, ss, rmbg, rwaifu, rneko, rmeme, rjoke, rquote, kv } = scrape;
 import log from "./lib/logger.js";
 import db from "./lib/database.js";
 import { TIERS } from "./lib/database.js";
@@ -2321,9 +2321,30 @@ let msgHandler = async (upsert, sock, m) => {
           await m.react('⏳')
           const result = needsInput ? await scrape[fn](q) : await scrape[fn]()
           if (result.type === 'image') {
-            await sock.sendMessage(m.chat, { image: { url: result.url }, caption: `${emoji} ${cmdName}` }, { quoted: m })
+            await sock.sendMessage(m.chat, {
+              image: { url: result.url },
+              caption: result.caption || `${emoji} ${cmdName}`
+            }, { quoted: m })
+            if (result.answer) {
+              await sock.sendMessage(m.chat, {
+                text: `🔑 *Jawaban:* ||${result.answer}||`
+              }, { quoted: m })
+            }
+          } else if (result.type === 'audio') {
+            await sock.sendMessage(m.chat, {
+              audio: { url: result.url },
+              mimetype: 'audio/mpeg',
+              ptt: false
+            }, { quoted: m })
+            if (result.caption) await reply(result.caption)
+            if (result.answer) {
+              await sock.sendMessage(m.chat, {
+                text: `🔑 *Jawaban:* ||${result.answer}||`
+              }, { quoted: m })
+            }
           } else {
-            const txt = `${emoji} *${cmdName}*\n\n` + fmt(result.data || result.text || JSON.stringify(result))
+            let txt = result.text || kv(result.data) || JSON.stringify(result)
+            if (result.answer) txt += `\n\n🔑 *Jawaban:* ||${result.answer}||`
             await reply(txt.slice(0, 4000))
           }
           await m.react('✅')
