@@ -10,7 +10,7 @@ import Pino from "pino";
 
 import { msgFilter } from "./lib/utils.js";
 import * as scrape from "./lib/scrape/index.js";
-const { catboxUpload, tiktokDl, snapDl, threadsDl, douyinDl, pinterestDl, Jawa, mlbbHero, searchLirik, ttSearch, npmstalk, igstalk, githubstalk, mediafireDl, scdl, jooxSearch, jooxDl, sfileSearch, sfileDl, capcutDl, searchMp3, appSearch, stickerSearch, ttRandom, surah, ssstik, dailyMotion, searchAppleMusic, snapinsta, fbdl2, ocrBuffer, whatMusic, nanoBanana, upscaleImage, upscaleVideo, wiki, define, kurs, currencyConvert, cuaca, googleSearch, animeInfo, movieInfo, berita, dolphinAI, editImg, ghibliAI, removeBg, qwenTTS, cekResi, nikParse, teraboxDL, ssweb, kbbiSearch, cookpadSearch, transcribe, perplexed, turboseek, bypassCity, lyricsSearch, unsplashSearch, pexelsSearch, claude3, geminiAI, megaDL, gdriveDL, scribdDL, animeQuote, getppWA, waifu2x, photoEnhancer, unblurVideo, artinama, tafsirmimpi, zodiak, nomorhoki, cekpenyakit, cocoknama, rejekiweton, gemini, deepseek, duckai, duckimg, gptoss, metaai, llama, ttdl, igdl, ytdl, fbdl, twdl, spdl, scdl2, pindl, ccdl, tebakgambar, caklontong, family100, tebakbendera, tebakkata, tebaklagu, susunkata, cermat, cnn, cnbc, antara, kompas, detik, tribun, brat, blur, greyscale, invert, sepia, pixelate, duck, brave, ytsearch2, ttsearch2, igsearch, ghsearch, igstalk2, ttstalk, twstalk, ghstalk2, cuaca2, bmkg, jadwaltv, ss, rmbg, rwaifu, rneko, rmeme, rjoke, rquote, kv } = scrape;
+const { catboxUpload, tiktokDl, snapDl, threadsDl, douyinDl, pinterestDl, Jawa, mlbbHero, searchLirik, ttSearch, npmstalk, igstalk, githubstalk, mediafireDl, scdl, jooxSearch, jooxDl, sfileSearch, sfileDl, capcutDl, searchMp3, appSearch, stickerSearch, ttRandom, surah, ssstik, dailyMotion, searchAppleMusic, snapinsta, fbdl2, ocrBuffer, whatMusic, nanoBanana, upscaleImage, upscaleVideo, wiki, define, kurs, currencyConvert, cuaca, googleSearch, animeInfo, movieInfo, berita, dolphinAI, editImg, ghibliAI, removeBg, qwenTTS, cekResi, nikParse, teraboxDL, ssweb, kbbiSearch, cookpadSearch, transcribe, perplexed, turboseek, bypassCity, lyricsSearch, unsplashSearch, pexelsSearch, claude3, geminiAI, megaDL, gdriveDL, scribdDL, animeQuote, getppWA, waifu2x, photoEnhancer, unblurVideo, artinama, tafsirmimpi, zodiak, nomorhoki, cekpenyakit, cocoknama, rejekiweton, gemini, deepseek, duckai, duckimg, gptoss, metaai, llama, ttdl, igdl, ytdl, fbdl, twdl, spdl, scdl2, pindl, ccdl, tebakgambar, caklontong, family100, tebakbendera, tebakkata, tebaklagu, susunkata, asahotak, cnn, cnbc, antara, kompas, liputan6, tribun, brat, blur, greyscale, invert, duck, brave, ytsearch2, ttsearch2, igsearch, ghsearch, igstalk2, ttstalk, twstalk, ghstalk2, cuaca2, bmkg, jadwaltv, ss, rwaifu, rneko, rmeme, rjoke, rquote, kv } = scrape;
 import log from "./lib/logger.js";
 import db from "./lib/database.js";
 import { TIERS } from "./lib/database.js";
@@ -642,7 +642,16 @@ let msgHandler = async (upsert, sock, m) => {
         await m.react("⏳");
         const result = await douyinDl(q);
         if (!result.success) return reply(`❌ *Gagal!* ${result.error}`);
-        reply(JSON.stringify(result, null, 2).slice(0, 1000));
+        const media = result.video || result.url || result.media;
+        const title = result.title || result.desc || result.description || '';
+        if (media) {
+          await sock.sendMessage(m.chat, {
+            video: { url: media },
+            caption: `📥 *Douyin Downloader*\n${title ? `📌 ${title}\n` : ''}\n© ${setting.name}`
+          }, { quoted: m });
+        } else {
+          reply(`📥 *Douyin Downloader*\n\n${title ? `📌 ${title}` : '✅ Download berhasil'}\n\n© ${setting.name}`);
+        }
         await m.react("✅");
       } catch (err) { await m.react("❌"); reply("❌ *Gagal download Douyin!*"); }
       break;
@@ -964,7 +973,7 @@ let msgHandler = async (upsert, sock, m) => {
         if (!result.success) return reply(`❌ ${result.error}`);
         if (result.medias?.[0]?.url) {
           await sock.sendMessage(m.chat, { video: { url: result.medias[0].url }, caption: result.title || "" }, { quoted: m });
-        } else { reply(JSON.stringify(result).slice(0, 1000)); }
+        } else { reply("❌ *Media tidak ditemukan!*"); }
         await m.react("✅");
       } catch (err) { await m.react("❌"); reply("❌ *Gagal download!*"); }
       break;
@@ -1403,7 +1412,7 @@ let msgHandler = async (upsert, sock, m) => {
         } else if (result.downloadLink || result.dlink) {
           await reply(`📁 *Terabox*\n\n🔗 Download: ${result.downloadLink || result.dlink}`);
         } else {
-          await reply(`📁 *Terabox Result*\n\n${JSON.stringify(result).slice(0, 500)}`);
+          await reply("📁 *Terabox*\n\n❌ *Tidak dapat mengekstrak link download.*");
         }
         await m.react("✅");
       } catch (err) { await m.react("❌"); reply(`❌ *Gagal download Terabox!* ${err.message}`); }
@@ -1515,7 +1524,13 @@ let msgHandler = async (upsert, sock, m) => {
         await m.react("⏳");
         const result = await bypassCity(q);
         if (!result.success) return reply(`❌ ${result.error}`);
-        await reply(`🔗 *Bypass Result*\n\n${JSON.stringify(result.result, null, 2).slice(0, 1000)}`);
+        const bypassUrl = result.result?.destination || result.result?.url || result.result?.result || result.result;
+        const urlStr = typeof bypassUrl === 'string' ? bypassUrl : (bypassUrl?.url || bypassUrl?.destination || '');
+        if (urlStr) {
+          await reply(`🔗 *Bypass Result*\n\n✅ ${urlStr}`);
+        } else {
+          await reply("🔗 *Bypass Result*\n\n❌ *Gagal mendapatkan link tujuan.*");
+        }
         await m.react("✅");
       } catch (err) { await m.react("❌"); reply(`❌ *Gagal bypass!* ${err.message}`); }
       break;
@@ -1620,7 +1635,13 @@ let msgHandler = async (upsert, sock, m) => {
         await m.react("⏳");
         const result = await scribdDL(q);
         if (!result.success) return reply(`❌ ${result.error}`);
-        await reply(`📄 *Scribd*\n\n${JSON.stringify(result.result, null, 2).slice(0, 1000)}`);
+        const dlUrl = result.result?.download_url || result.result?.url || result.result?.link || result.result;
+        const urlStr = typeof dlUrl === 'string' ? dlUrl : (dlUrl?.url || dlUrl?.download || '');
+        if (urlStr) {
+          await reply(`📄 *Scribd*\n\n🔗 Download: ${urlStr}`);
+        } else {
+          await reply("📄 *Scribd*\n\n❌ *Gagal mendapatkan link download.*");
+        }
         await m.react("✅");
       } catch (err) { await m.react("❌"); reply(`❌ *Gagal!* ${err.message}`); }
       break;
@@ -1646,7 +1667,7 @@ let msgHandler = async (upsert, sock, m) => {
           if (result.result?.url) {
             await sock.sendMessage(m.chat, { image: { url: result.result.url }, caption: `📷 *PP WA: ${num}*` }, { quoted: m, ephemeralExpiration: m.contextInfo?.expiration });
           } else {
-            await reply(`📷 *PP WA Result*\n\n${JSON.stringify(result.result, null, 2).slice(0, 500)}`);
+            await reply("📷 *PP WA*\n\n❌ *Foto profil tidak ditemukan.*");
           }
           await m.react("✅");
         } catch (err) { await m.react("❌"); reply(`❌ *Gagal!* ${err.message}`); }
@@ -2278,19 +2299,17 @@ let msgHandler = async (upsert, sock, m) => {
         tebakkata: ['tebakkata', '🎮'],
         tebaklagu: ['tebaklagu', '🎮'],
         susunkata: ['susunkata', '🎮'],
-        cermat: ['cermat', '🎮'],
+        asahotak: ['asahotak', '🎮'],
         cnn: ['cnn', '📰'],
         cnbc: ['cnbc', '📰'],
         antara: ['antara', '📰'],
         kompas: ['kompas', '📰'],
-        detik: ['detik', '📰'],
+        liputan6: ['liputan6', '📰'],
         tribun: ['tribun', '📰'],
         brat: ['brat', '🎨', true],
         blur: ['blur', '🎨', true],
         greyscale: ['greyscale', '🎨', true],
         invert: ['invert', '🎨', true],
-        sepia: ['sepia', '🎨', true],
-        pixelate: ['pixelate', '🎨', true],
         duck: ['duck', '🔍', true],
         brave: ['brave', '🔍', true],
         ytsearch2: ['ytsearch2', '🔍', true],
@@ -2305,7 +2324,6 @@ let msgHandler = async (upsert, sock, m) => {
         bmkg: ['bmkg', 'ℹ️'],
         jadwaltv: ['jadwaltv', 'ℹ️'],
         ss: ['ss', '🛠️', true],
-        rmbg: ['rmbg', '🛠️', true],
         rwaifu: ['rwaifu', '🎲'],
         rneko: ['rneko', '🎲'],
         rmeme: ['rmeme', '🎲'],
@@ -2343,9 +2361,14 @@ let msgHandler = async (upsert, sock, m) => {
               }, { quoted: m })
             }
           } else {
-            let txt = result.text || kv(result.data) || JSON.stringify(result)
-            if (result.answer) txt += `\n\n🔑 *Jawaban:* ||${result.answer}||`
+            let txt = result.text || kv(result.data) || ''
+            if (!txt) return reply('❌ *Response tidak valid dari API*')
             await reply(txt.slice(0, 4000))
+            if (result.answer) {
+              await sock.sendMessage(m.chat, {
+                text: `🔑 *Jawaban:* ||${result.answer}||`
+              }, { quoted: m })
+            }
           }
           await m.react('✅')
         } catch (e) {
