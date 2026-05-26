@@ -2528,6 +2528,7 @@ let msgHandler = async (upsert, sock, m) => {
           reply(`❌ Gagal: ${e.message}`)
           // Auto-report API errors to owner
           try {
+            if (!sock?.user) return;
             const ownerJid = setting.owner + "@s.whatsapp.net";
             await sock.sendMessage(ownerJid, {
               text: `🚨 *API ERROR*\n\n📋 *Cmd:* .${fn}\n❌ *Error:* ${e.message}\n👤 *User:* ${pushname}\n⏰ ${new Date().toLocaleString('id-ID')}`
@@ -2553,13 +2554,15 @@ let msgHandler = async (upsert, sock, m) => {
     log.error(err.message || err);
     // Auto-report to owner
     try {
+      if (!sock?.user) return;
       const ownerJid = setting.owner + "@s.whatsapp.net";
-      const errStack = (err.stack || err.message || String(err)).slice(0, 800);
+      const errMsg = (err.message || String(err)).slice(0, 500);
+      const errStack = (err.stack || '').slice(0, 600);
       await sock.sendMessage(ownerJid, {
-        text: `🚨 *ERROR REPORT*\n\n📋 *Pesan:* ${err.message || String(err)}\n👤 *User:* ${pushname || '?'}\n💬 *Chat:* ${m.chat}\n⏰ *Waktu:* ${new Date().toLocaleString('id-ID')}\n\n\`\`\`${errStack}\`\`\``
+        text: `🚨 *ERROR REPORT*\n\n📋 *Pesan:* ${errMsg}\n👤 *User:* ${pushname || '?'}\n💬 *Chat:* ${m.chat}\n⏰ *Waktu:* ${new Date().toLocaleString('id-ID')}\n\n_${errStack}_`
       });
-    } catch (reportErr) {
-      log.error('Failed to send error report:', reportErr.message);
+    } catch {
+      // silent fail
     }
   }
 };
