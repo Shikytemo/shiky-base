@@ -365,6 +365,22 @@ let msgHandler = async (upsert, sock, m) => {
       }
       break;
 
+    case "error": case "bug": case "report":
+      {
+        if (!q) return reply("📝 Masukkan deskripsi error!\nContoh: .error command .ytdl tidak berfungsi");
+        const ownerJid = setting.owner + "@s.whatsapp.net";
+        try {
+          await sock.sendMessage(ownerJid, {
+            text: `🐛 *BUG REPORT*\n\n👤 *Dari:* ${pushname} (${sender.split('@')[0]})\n💬 *Chat:* ${m.chat}\n📋 *Pesan:* ${q}\n⏰ ${new Date().toLocaleString('id-ID')}`
+          });
+          await reply("✅ *Laporan terkirim!* Terima kasih sudah melaporkan bug. Akan segera dicek oleh owner.");
+          await m.react('✅');
+        } catch {
+          reply("❌ *Gagal mengirim laporan.*");
+        }
+      }
+      break;
+
     case "ping": case "test": case "tes":
       {
         const latency = Date.now() - t * 1000;
@@ -2510,6 +2526,13 @@ let msgHandler = async (upsert, sock, m) => {
         } catch (e) {
           await m.react('❌')
           reply(`❌ Gagal: ${e.message}`)
+          // Auto-report API errors to owner
+          try {
+            const ownerJid = setting.owner + "@s.whatsapp.net";
+            await sock.sendMessage(ownerJid, {
+              text: `🚨 *API ERROR*\n\n📋 *Cmd:* .${fn}\n❌ *Error:* ${e.message}\n👤 *User:* ${pushname}\n⏰ ${new Date().toLocaleString('id-ID')}`
+            });
+          } catch {}
         }
       }
       if (isCmd) log.unregistered(pushname);
@@ -2528,6 +2551,16 @@ let msgHandler = async (upsert, sock, m) => {
   }
   } catch (err) {
     log.error(err.message || err);
+    // Auto-report to owner
+    try {
+      const ownerJid = setting.owner + "@s.whatsapp.net";
+      const errStack = (err.stack || err.message || String(err)).slice(0, 800);
+      await sock.sendMessage(ownerJid, {
+        text: `🚨 *ERROR REPORT*\n\n📋 *Pesan:* ${err.message || String(err)}\n👤 *User:* ${pushname || '?'}\n💬 *Chat:* ${m.chat}\n⏰ *Waktu:* ${new Date().toLocaleString('id-ID')}\n\n\`\`\`${errStack}\`\`\``
+      });
+    } catch (reportErr) {
+      log.error('Failed to send error report:', reportErr.message);
+    }
   }
 };
 
