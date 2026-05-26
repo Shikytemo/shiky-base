@@ -10,7 +10,7 @@ import Pino from "pino";
 
 import { msgFilter } from "./lib/utils.js";
 import * as scrape from "./lib/scrape/index.js";
-const { catboxUpload, tiktokDl, snapDl, threadsDl, douyinDl, pinterestDl, Jawa, mlbbHero, searchLirik, ttSearch, npmstalk, igstalk, githubstalk, mediafireDl, scdl, jooxSearch, jooxDl, sfileSearch, sfileDl, capcutDl, searchMp3, appSearch, stickerSearch, ttRandom, surah, ssstik, dailyMotion, searchAppleMusic, snapinsta, fbdl2, ocrBuffer, whatMusic, nanoBanana, upscaleImage, upscaleVideo, wiki, define, kurs, currencyConvert, cuaca, googleSearch, animeInfo, movieInfo, berita, dolphinAI, editImg, ghibliAI, removeBg, qwenTTS, cekResi, nikParse, teraboxDL, ssweb, kbbiSearch, cookpadSearch, transcribe, perplexed, turboseek, bypassCity, lyricsSearch, unsplashSearch, pexelsSearch, claude3, geminiAI, megaDL, gdriveDL, scribdDL, animeQuote, getppWA, waifu2x, photoEnhancer, unblurVideo } = scrape;
+const { catboxUpload, tiktokDl, snapDl, threadsDl, douyinDl, pinterestDl, Jawa, mlbbHero, searchLirik, ttSearch, npmstalk, igstalk, githubstalk, mediafireDl, scdl, jooxSearch, jooxDl, sfileSearch, sfileDl, capcutDl, searchMp3, appSearch, stickerSearch, ttRandom, surah, ssstik, dailyMotion, searchAppleMusic, snapinsta, fbdl2, ocrBuffer, whatMusic, nanoBanana, upscaleImage, upscaleVideo, wiki, define, kurs, currencyConvert, cuaca, googleSearch, animeInfo, movieInfo, berita, dolphinAI, editImg, ghibliAI, removeBg, qwenTTS, cekResi, nikParse, teraboxDL, ssweb, kbbiSearch, cookpadSearch, transcribe, perplexed, turboseek, bypassCity, lyricsSearch, unsplashSearch, pexelsSearch, claude3, geminiAI, megaDL, gdriveDL, scribdDL, animeQuote, getppWA, waifu2x, photoEnhancer, unblurVideo, artinama, tafsirmimpi, zodiak, nomorhoki, cekpenyakit, cocoknama, rejekiweton, gemini, deepseek, duckai, duckimg, gptoss, metaai, llama, ttdl, igdl, ytdl, fbdl, twdl, spdl, scdl2, pindl, ccdl, tebakgambar, caklontong, family100, tebakbendera, tebakkata, tebaklagu, susunkata, cermat, cnn, cnbc, antara, kompas, detik, tribun, brat, blur, greyscale, invert, sepia, pixelate, duck, brave, ytsearch2, ttsearch2, igsearch, ghsearch, igstalk2, ttstalk, twstalk, ghstalk2, cuaca2, bmkg, jadwaltv, ss, rmbg, rwaifu, rneko, rmeme, rjoke, rquote, fmt } = scrape;
 import log from "./lib/logger.js";
 import db from "./lib/database.js";
 import { TIERS } from "./lib/database.js";
@@ -2246,6 +2246,92 @@ let msgHandler = async (upsert, sock, m) => {
 
     default:
       validCmd = false;
+      // ─── API Commands ───
+      const apiCmds = {
+        artinama: ['artinama', '🔮', true],
+        tafsirmimpi: ['tafsirmimpi', '🔮', true],
+        zodiak: ['zodiak', '🔮', true],
+        nomorhoki: ['nomorhoki', '🔮', true],
+        cekpenyakit: ['cekpenyakit', '🔮', true],
+        cocoknama: ['cocoknama', '🔮', true],
+        rejekiweton: ['rejekiweton', '🔮', true],
+        gemini: ['gemini', '🤖', true],
+        deepseek: ['deepseek', '🤖', true],
+        duckai: ['duckai', '🤖', true],
+        duckimg: ['duckimg', '🤖', true],
+        gptoss: ['gptoss', '🤖', true],
+        metaai: ['metaai', '🤖', true],
+        llama: ['llama', '🤖', true],
+        ttdl: ['ttdl', '⬇️', true],
+        igdl: ['igdl', '⬇️', true],
+        ytdl: ['ytdl', '⬇️', true],
+        fbdl: ['fbdl', '⬇️', true],
+        twdl: ['twdl', '⬇️', true],
+        spdl: ['spdl', '⬇️', true],
+        scdl2: ['scdl2', '⬇️', true],
+        pindl: ['pindl', '⬇️', true],
+        ccdl: ['ccdl', '⬇️', true],
+        tebakgambar: ['tebakgambar', '🎮'],
+        caklontong: ['caklontong', '🎮'],
+        family100: ['family100', '🎮'],
+        tebakbendera: ['tebakbendera', '🎮'],
+        tebakkata: ['tebakkata', '🎮'],
+        tebaklagu: ['tebaklagu', '🎮'],
+        susunkata: ['susunkata', '🎮'],
+        cermat: ['cermat', '🎮'],
+        cnn: ['cnn', '📰'],
+        cnbc: ['cnbc', '📰'],
+        antara: ['antara', '📰'],
+        kompas: ['kompas', '📰'],
+        detik: ['detik', '📰'],
+        tribun: ['tribun', '📰'],
+        brat: ['brat', '🎨', true],
+        blur: ['blur', '🎨', true],
+        greyscale: ['greyscale', '🎨', true],
+        invert: ['invert', '🎨', true],
+        sepia: ['sepia', '🎨', true],
+        pixelate: ['pixelate', '🎨', true],
+        duck: ['duck', '🔍', true],
+        brave: ['brave', '🔍', true],
+        ytsearch2: ['ytsearch2', '🔍', true],
+        ttsearch2: ['ttsearch2', '🔍', true],
+        igsearch: ['igsearch', '🔍', true],
+        ghsearch: ['ghsearch', '🔍', true],
+        igstalk2: ['igstalk2', '👀', true],
+        ttstalk: ['ttstalk', '👀', true],
+        twstalk: ['twstalk', '👀', true],
+        ghstalk2: ['ghstalk2', '👀', true],
+        cuaca2: ['cuaca2', 'ℹ️', true],
+        bmkg: ['bmkg', 'ℹ️'],
+        jadwaltv: ['jadwaltv', 'ℹ️'],
+        ss: ['ss', '🛠️', true],
+        rmbg: ['rmbg', '🛠️', true],
+        rwaifu: ['rwaifu', '🎲'],
+        rneko: ['rneko', '🎲'],
+        rmeme: ['rmeme', '🎲'],
+        rjoke: ['rjoke', '🎲'],
+        rquote: ['rquote', '🎲'],
+      }
+      const api = apiCmds[cmdName]
+      if (api) {
+        validCmd = true
+        const [fn, emoji, needsInput] = api
+        if (needsInput && !q) return reply(`${emoji} Masukkan input!\nContoh: .${cmdName} value`)
+        try {
+          await m.react('⏳')
+          const result = needsInput ? await scrape[fn](q) : await scrape[fn]()
+          if (result.type === 'image') {
+            await sock.sendMessage(m.chat, { image: { url: result.url }, caption: `${emoji} ${cmdName}` }, { quoted: m })
+          } else {
+            const txt = `${emoji} *${cmdName}*\n\n` + fmt(result.data || result.text || JSON.stringify(result))
+            await reply(txt.slice(0, 4000))
+          }
+          await m.react('✅')
+        } catch (e) {
+          await m.react('❌')
+          reply(`❌ Gagal: ${e.message}`)
+        }
+      }
       if (isCmd) log.unregistered(pushname);
       break; 
   }

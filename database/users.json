@@ -3,16 +3,16 @@
     "jid": "12365021517@s.whatsapp.net",
     "name": "KimKiro",
     "level": 4,
-    "xp": 252,
+    "xp": 259,
     "money": 0,
     "limit": 99999,
     "role": "owner",
     "premium": false,
     "premiumExpiry": 0,
-    "totalCmd": 70,
+    "totalCmd": 71,
     "registered": 1778879542332,
     "lastDaily": 0,
-    "lastReset": "2026-05-18"
+    "lastReset": "2026-05-19"
   },
   "6283151666244@s.whatsapp.net": {
     "jid": "6283151666244@s.whatsapp.net",
@@ -57,7 +57,7 @@
     "totalCmd": 0,
     "registered": 1778912733615,
     "lastDaily": 0,
-    "lastReset": "2026-05-16"
+    "lastReset": "2026-05-19"
   },
   "6282299799649@s.whatsapp.net": {
     "jid": "6282299799649@s.whatsapp.net",
@@ -88,5 +88,20 @@
     "registered": 1779092857944,
     "lastDaily": 0,
     "lastReset": "2026-05-18"
+  },
+  "6282277789006@s.whatsapp.net": {
+    "jid": "6282277789006@s.whatsapp.net",
+    "name": "Rezaandrian@gmail.Com",
+    "level": 1,
+    "xp": 0,
+    "money": 0,
+    "limit": 25,
+    "role": "user",
+    "premium": false,
+    "premiumExpiry": 0,
+    "totalCmd": 0,
+    "registered": 1779190298472,
+    "lastDaily": 0,
+    "lastReset": "2026-05-19"
   }
 }
